@@ -17,6 +17,6 @@ COPY --chown=node:node . .
 RUN npx remotion browser ensure && mkdir -p public/renders storage/jobs
 
 ENV NODE_ENV=production PORT=3000 DEFAULT_PLAN=free \
-    CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app
+    CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app,https://*--admirable-sundae-231bb4.netlify.app
 EXPOSE 3000
 CMD ["npm", "start"]

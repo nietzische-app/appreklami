@@ -103,7 +103,7 @@ Before going public you also want auth/billing in `resolvePlan`; until then keep
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
 | `ALLOWED_LOCAL_ROOTS` | unset (disabled) | Comma-separated roots a `local` source must live in. Leave unset on a public server |
-| `CORS_ORIGIN` | none | Origins allowed to call the API from a browser, e.g. `https://my-site.netlify.app` |
+| `CORS_ORIGIN` | none | Origins allowed to call the API from a browser, comma-separated; `*` works inside the host (e.g. `https://*--my-site.netlify.app` for Netlify branch/preview deploys) |
 | `RATE_LIMIT_PER_HOUR` | `5` | New jobs per client IP per hour (`0` = off) |
 | `RENDER_RETENTION_HOURS` | `24` | Delete finished jobs/videos after this many hours (`0` = keep) |
 | `HOST` | `0.0.0.0` | Interface to bind |

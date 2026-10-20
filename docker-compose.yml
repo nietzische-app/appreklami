@@ -11,7 +11,7 @@ services:
       - "127.0.0.1:3100:3000"
     environment:
       DEFAULT_PLAN: free
-      CORS_ORIGIN: https://admirable-sundae-231bb4.netlify.app
+      CORS_ORIGIN: "https://admirable-sundae-231bb4.netlify.app,https://*--admirable-sundae-231bb4.netlify.app"
       RATE_LIMIT_PER_HOUR: "5"
       MAX_QUEUED_JOBS: "10"
       RENDER_RETENTION_HOURS: "24"

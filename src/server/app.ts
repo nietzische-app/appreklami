@@ -23,6 +23,12 @@ function resolvePlan(req: Request): Plan {
   return config.defaultPlan;
 }
 
+const originPatterns = config.corsOrigins.map((entry) =>
+  entry === "*" ? /^.*$/ : new RegExp(`^${entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[a-z0-9-]+")}$`, "i"),
+);
+/** CORS_ORIGIN entries may use `*` inside the host, e.g. https://*--my-site.netlify.app for Netlify branch/preview deploys. */
+export const isOriginAllowed = (origin: string) => originPatterns.some((re) => re.test(origin));
+
 class RateLimitError extends Error {}
 const hits = new Map<string, number[]>();
 
@@ -45,7 +51,7 @@ export function createApp() {
 
   app.use((req, res, next) => {
     const origin = req.header("origin");
-    const allowed = config.corsOrigins.includes("*") || (origin && config.corsOrigins.includes(origin));
+    const allowed = origin && isOriginAllowed(origin);
     if (origin && allowed) {
       res.setHeader("Access-Control-Allow-Origin", config.corsOrigins.includes("*") ? "*" : origin);
       res.setHeader("Vary", "Origin");
