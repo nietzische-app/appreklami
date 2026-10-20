@@ -8,6 +8,7 @@ const int = (v: string | undefined, d: number) => {
 
 export const config = {
   port: int(process.env.PORT, 3000),
+  host: process.env.HOST ?? "0.0.0.0",
   rendersDir: path.resolve(process.env.RENDERS_DIR ?? "public/renders"),
   /** Per-job scratch dirs (Remotion public dir with sfx + staged project images). */
   workDir: path.resolve(process.env.WORK_DIR ?? "storage/jobs"),
@@ -27,6 +28,8 @@ export const config = {
   corsOrigins: (process.env.CORS_ORIGIN ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   /** Max new jobs per client IP per hour (0 = unlimited). */
   rateLimitPerHour: Number(process.env.RATE_LIMIT_PER_HOUR ?? 5),
+  /** Rendered jobs older than this are deleted (disk protection on a shared server). 0 = keep forever. */
+  retentionHours: Number(process.env.RENDER_RETENTION_HOURS ?? 24),
   maxQueuedJobs: int(process.env.MAX_QUEUED_JOBS, 20),
   /** Prefix for URLs returned to clients; set when the API is served from a different origin. */
   publicBaseUrl: (process.env.PUBLIC_BASE_URL ?? "").replace(/\/$/, ""),

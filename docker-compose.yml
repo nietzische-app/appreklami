@@ -1,0 +1,37 @@
+# Isolated deployment for a shared server (e.g. Hetzner with other projects already running).
+# - Own container, own network, no privileged access.
+# - Hard CPU/RAM caps so renders can never starve your other projects.
+# - Listens only on 127.0.0.1:3100; put your existing reverse proxy (or a Cloudflare Tunnel) in front.
+services:
+  appreklami-api:
+    build: .
+    container_name: appreklami-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      DEFAULT_PLAN: free
+      CORS_ORIGIN: https://admirable-sundae-231bb4.netlify.app
+      RATE_LIMIT_PER_HOUR: "5"
+      MAX_QUEUED_JOBS: "10"
+      RENDER_RETENTION_HOURS: "24"
+      PRO_RENDER_SCALE: "2"
+      # Tune to the limits below: ~1 Chrome tab per CPU is safe.
+      RENDER_CONCURRENCY: "2"
+    volumes:
+      - renders:/app/public/renders
+    cpus: 2.0            # at most 2 CPU cores
+    mem_limit: 3g        # at most 3 GB RAM (Chrome is memory hungry; lower = slower but safer)
+    memswap_limit: 3g
+    pids_limit: 512
+    shm_size: 1g         # Chrome needs shared memory
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  renders:

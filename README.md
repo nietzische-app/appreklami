@@ -88,7 +88,7 @@ cd web && npm install && npm run dev   # UI on :5173, proxies /api and /renders 
 **Netlify cannot run the renderer** (functions are limited to seconds; Remotion needs Chrome, ffmpeg and minutes of CPU).
 So the deployment is split:
 
-1. **API** on a long-lived host (Fly.io / Railway / Render / VPS) using the `Dockerfile` (default `DEFAULT_PLAN=free`).
+1. **API** on a long-lived host (shared Hetzner server? see `docs/DEPLOY-HETZNER.md` - isolated container with CPU/RAM caps) (Fly.io / Railway / Render / VPS) using the `Dockerfile` (default `DEFAULT_PLAN=free`).
    Set `CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app` (already the default in the `Dockerfile`). Give it a persistent volume for `public/renders` (or add S3 later).
 2. **UI** on Netlify: connect the repo (`netlify.toml` already sets base `web`, build `npm run build`, publish `dist`) and set the
    env var `VITE_API_URL=https://<your-api-host>`.
@@ -105,6 +105,8 @@ Before going public you also want auth/billing in `resolvePlan`; until then keep
 | `ALLOWED_LOCAL_ROOTS` | unset (disabled) | Comma-separated roots a `local` source must live in. Leave unset on a public server |
 | `CORS_ORIGIN` | none | Origins allowed to call the API from a browser, e.g. `https://my-site.netlify.app` |
 | `RATE_LIMIT_PER_HOUR` | `5` | New jobs per client IP per hour (`0` = off) |
+| `RENDER_RETENTION_HOURS` | `24` | Delete finished jobs/videos after this many hours (`0` = keep) |
+| `HOST` | `0.0.0.0` | Interface to bind |
 | `MAX_QUEUED_JOBS` | `20` | Reject new jobs (HTTP 429) when the queue is this long |
 | `DEFAULT_PLAN` | `pro` | Plan given to every request until real auth exists (`free` skips the PRO video) |
 | `ALLOW_PLAN_OVERRIDE` | off | `1` lets a client send `X-Plan: free\|pro` (dev/testing only) |

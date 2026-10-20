@@ -1,4 +1,4 @@
-# Render API (Express + Remotion CLI + headless Chrome + ffmpeg). Not for Netlify - run it on Fly.io / Railway / a VPS.
+# Render API (Express + Remotion CLI + headless Chrome + ffmpeg). Not for Netlify - run it on a VPS (Hetzner), Fly.io, Railway...
 FROM node:22-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,10 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package.json package-lock.json ./
+RUN chown node:node /app
+USER node
+
+COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci
-COPY . .
-RUN npx remotion browser ensure
+COPY --chown=node:node . .
+RUN npx remotion browser ensure && mkdir -p public/renders storage/jobs
 
 ENV NODE_ENV=production PORT=3000 DEFAULT_PLAN=free \
     CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app
