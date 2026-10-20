@@ -69,15 +69,37 @@ export const VideoPreviewCard: React.FC<{ video: Video; t: Dict }> = ({ video, t
           {done ? (
             <video src={`${assetUrl(video.url!)}#t=2`} controls playsInline loop preload="metadata" className="h-full w-full bg-black object-cover" />
           ) : locked ? (
-            <ScreenMessage className="relative bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08),transparent_65%)]">
-              <span className="grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-white/5 text-white shadow-glow">
-                <LockIcon />
-              </span>
-              <Badge tone="pro" className="font-medium tracking-widest">PRO</Badge>
-              <strong className="text-sm font-medium text-white">{t.locked}</strong>
-              <small className="text-xs">{t.lockedSub}</small>
-              <Button type="button" variant="pro" size="sm">{t.upgrade}</Button>
-            </ScreenMessage>
+            <div className="relative h-full w-full">
+              {video.previewUrl ? (
+                <video
+                  src={assetUrl(video.previewUrl)}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  aria-hidden
+                  tabIndex={-1}
+                  className="pointer-events-none h-full w-full scale-110 object-cover blur-[6px] saturate-125"
+                />
+              ) : null}
+              <ScreenMessage
+                className={cx(
+                  "absolute inset-0",
+                  video.previewUrl
+                    ? "bg-gradient-to-b from-black/10 via-black/30 to-black/80 text-zinc-300"
+                    : "bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08),transparent_65%)]",
+                )}
+              >
+                <span className="grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-black/40 text-white shadow-glow backdrop-blur-md">
+                  <LockIcon />
+                </span>
+                <Badge tone="pro" className="bg-black/50 font-medium tracking-widest">PRO</Badge>
+                <strong className="text-sm font-medium text-white">{t.locked}</strong>
+                <small className="text-xs">{t.lockedSub}</small>
+                <Button type="button" variant="pro" size="sm" className="bg-black/50 backdrop-blur-md">{t.upgrade}</Button>
+              </ScreenMessage>
+            </div>
           ) : video.status === "cancelled" ? (
             <ScreenMessage>
               <strong className="text-sm font-medium text-white">{t.cancelledShort}</strong>

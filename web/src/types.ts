@@ -10,6 +10,7 @@ export interface Video {
   resolution: string;
   watermark: boolean;
   url?: string;
+  previewUrl?: string;
   error?: string;
 }
 

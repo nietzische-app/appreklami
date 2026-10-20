@@ -62,6 +62,11 @@ export interface RenderOptions {
   signal?: AbortSignal;
   /** 0..100 */
   onProgress: (percent: number) => void;
+  /** Overrides for teaser renders; default to the tier's own settings and the full composition. */
+  scale?: number;
+  crf?: number;
+  /** Remotion --frames range, e.g. "0-149". */
+  frames?: string;
 }
 
 /**
@@ -98,12 +103,13 @@ export function renderWithRemotionCli(opts: RenderOptions): Promise<void> {
     opts.outFile,
     `--props=${opts.propsFile}`,
     `--public-dir=${opts.publicDir}`,
-    `--scale=${tier.scale}`,
+    `--scale=${opts.scale ?? tier.scale}`,
     "--codec=h264",
-    `--crf=${tier.crf}`,
+    `--crf=${opts.crf ?? tier.crf}`,
     "--log=info",
     "--overwrite",
   ];
+  if (opts.frames) args.push(`--frames=${opts.frames}`);
   if (config.renderConcurrency) args.push(`--concurrency=${config.renderConcurrency}`);
 
   return new Promise<void>((resolve, reject) => {

@@ -56,10 +56,10 @@ class JobStore extends EventEmitter {
   update(jobId: string, mutate: (job: JobState) => void): void {
     const job = this.jobs.get(jobId);
     if (!job) return;
-    const before = JSON.stringify([job.status, job.progress, job.videos.map((v) => [v.status, v.progress, v.url, v.error])]);
+    const before = JSON.stringify([job.status, job.progress, job.videos.map((v) => [v.status, v.progress, v.url, v.previewUrl, v.error])]);
     mutate(job);
     job.progress = computeProgress(job);
-    const after = JSON.stringify([job.status, job.progress, job.videos.map((v) => [v.status, v.progress, v.url, v.error])]);
+    const after = JSON.stringify([job.status, job.progress, job.videos.map((v) => [v.status, v.progress, v.url, v.previewUrl, v.error])]);
     if (before === after) return;
     job.updatedAt = new Date().toISOString();
     void this.persist(job);

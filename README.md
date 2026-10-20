@@ -162,6 +162,7 @@ Before going public you also want auth/billing in `resolvePlan`; until then keep
 | `DEFAULT_PLAN` | `pro` | Plan given to every request until real auth exists (`free` skips the PRO video) |
 | `ALLOW_PLAN_OVERRIDE` | off | `1` lets a client send `X-Plan: free\|pro` (dev/testing only) |
 | `PRO_RENDER_SCALE` | `2` | Remotion `--scale` for the PRO video (1 = 1080p, 2 = 4K) |
+| `PRO_PREVIEW` | on | Free plan: render a 6 s, 270x480, pre-blurred teaser of the PRO video (`previewUrl`) for the locked card. `0` disables it |
 | `JOB_CONCURRENCY` | `1` | Jobs rendered in parallel (videos within a job are always sequential) |
 | `RENDER_CONCURRENCY` | Remotion default | Passed to `--concurrency` |
 | `LIVE_CAPTURE` | on | `0` disables the Playwright live-demo recording |

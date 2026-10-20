@@ -97,6 +97,8 @@ export interface VideoState {
   watermark: boolean;
   /** Public URL, e.g. /renders/<jobId>/option-1-basic.mp4 */
   url?: string;
+  /** Locked PRO tiers only: short, pre-blurred low-resolution teaser (never the real video). */
+  previewUrl?: string;
   error?: string;
 }
 

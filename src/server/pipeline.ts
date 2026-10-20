@@ -4,11 +4,11 @@ import path from "node:path";
 import { analyzeProject, resolveSource } from "../analyzer";
 import { normalizeVideoProps } from "../remotion/props";
 import { PALETTES } from "../remotion/theme";
-import { TIERS, outputFileName } from "../shared/tiers";
+import { FPS, TIERS, VIDEO_HEIGHT, VIDEO_WIDTH, outputFileName } from "../shared/tiers";
 import type { MediaAsset, Plan, ProjectAnalysis, SourceInput, TierConfig, UserIntent, VideoProps } from "../shared/types";
 import { config } from "./config";
 import { jobStore } from "./jobStore";
-import { degradeMedia, prepareMedia } from "./media-prep";
+import { blurPreview, degradeMedia, prepareMedia } from "./media-prep";
 import { CancelledError, RenderError, renderWithRemotionCli } from "./renderer";
 
 const SAFE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".webm", ".mp4"]);
@@ -73,6 +73,7 @@ export async function renderWithFallback(
   publicDir: string,
   outFile: string,
   signal: AbortSignal | undefined,
+  overrides: { scale?: number; crf?: number; frames?: string; trackProgress?: boolean } = {},
 ): Promise<void> {
   const attempts: MediaAsset[][] = [media];
   for (const level of [1, 2] as const) {
@@ -91,10 +92,15 @@ export async function renderWithFallback(
         propsFile,
         outFile,
         signal,
-        onProgress: (pct) =>
+        scale: overrides.scale,
+        crf: overrides.crf,
+        frames: overrides.frames,
+        onProgress: (pct) => {
+          if (overrides.trackProgress === false) return;
           jobStore.update(jobId, (j) => {
             j.videos[index].progress = pct;
-          }),
+          });
+        },
       });
       return;
     } catch (err) {
@@ -102,12 +108,52 @@ export async function renderWithFallback(
       const retryable = err instanceof RenderError && err.kind === "media" && attempt < attempts.length - 1;
       if (!retryable) throw err;
       console.warn(`[render] job ${jobId} ${tier.id}: media error, retrying with safer media (attempt ${attempt + 2}/${attempts.length})`);
-      jobStore.update(jobId, (j) => {
-        j.videos[index].progress = 0;
-      });
+      if (overrides.trackProgress !== false) {
+        jobStore.update(jobId, (j) => {
+          j.videos[index].progress = 0;
+        });
+      }
     }
   }
   throw lastError;
+}
+
+const PREVIEW_SCALE = 0.25;
+const PREVIEW_SECONDS = 6;
+export const previewFileName = (tier: TierConfig) => `option-${tier.option}-${tier.id}-preview.mp4`;
+
+/**
+ * Free plan: the PRO video is not rendered, but a teaser is: first seconds, 270x480, then irreversibly blurred, so the
+ * UI can show an enticing blurred preview behind the lock without handing out the real video. Best effort; never fails the job.
+ */
+async function renderLockedPreview(
+  jobId: string,
+  index: number,
+  tier: TierConfig,
+  analysis: ProjectAnalysis,
+  media: MediaAsset[],
+  publicDir: string,
+  outDir: string,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  const raw = path.join(config.workDir, jobId, `preview-raw-${tier.id}.mp4`);
+  const finalName = previewFileName(tier);
+  try {
+    await renderWithFallback(jobId, index, tier, analysis, media, publicDir, raw, signal, {
+      scale: PREVIEW_SCALE,
+      crf: 30,
+      frames: `0-${PREVIEW_SECONDS * FPS - 1}`,
+      trackProgress: false,
+    });
+    const ok = await blurPreview(raw, path.join(outDir, finalName), Math.round(VIDEO_WIDTH * PREVIEW_SCALE), Math.round(VIDEO_HEIGHT * PREVIEW_SCALE));
+    if (!ok) throw new Error("blur pass failed");
+    jobStore.update(jobId, (j) => {
+      j.videos[index].previewUrl = `/renders/${jobId}/${finalName}`;
+    });
+  } catch (err) {
+    if (err instanceof CancelledError || signal?.aborted) throw new CancelledError();
+    console.warn(`[render] job ${jobId} ${tier.id}: locked preview skipped: ${(err as Error).message.split("\n")[0]}`);
+  }
 }
 
 const controllers = new Map<string, AbortController>();
@@ -166,7 +212,10 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan, int
     });
 
     for (const [index, tier] of TIERS.entries()) {
-      if (tier.premium && plan !== "pro") continue;
+      if (tier.premium && plan !== "pro") {
+        if (config.proPreview) await renderLockedPreview(jobId, index, tier, analysis, media, publicDir, outDir, signal);
+        continue;
+      }
 
       jobStore.update(jobId, (j) => {
         j.videos[index].status = "rendering";

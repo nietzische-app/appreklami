@@ -33,5 +33,7 @@ export const config = {
   maxQueuedJobs: int(process.env.MAX_QUEUED_JOBS, 20),
   /** Prefix for URLs returned to clients; set when the API is served from a different origin. */
   publicBaseUrl: (process.env.PUBLIC_BASE_URL ?? "").replace(/\/$/, ""),
+  /** Free plan: render a short blurred teaser of the PRO video (PRO_PREVIEW=0 turns it off). */
+  proPreview: process.env.PRO_PREVIEW !== "0",
   allowPlanOverride: process.env.ALLOW_PLAN_OVERRIDE === "1",
 };

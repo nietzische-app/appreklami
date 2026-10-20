@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fetchJsonSafe } from "../src/analyzer/http";
 import { normalizeVideoProps } from "../src/remotion/props";
-import { degradeMedia, prepareMedia } from "../src/server/media-prep";
+import { blurPreview, degradeMedia, prepareMedia, probeVideo } from "../src/server/media-prep";
 import { RenderError, explainRenderError } from "../src/server/renderer";
 import type { MediaAsset } from "../src/shared/types";
 
@@ -91,4 +91,18 @@ test("prepareMedia: a real recording is re-encoded to a seekable mp4", async () 
   assert.equal(out?.src, "media/m1.norm.mp4");
   assert.ok(existsSync(path.join(dir, "media/m1.norm.mp4")));
   assert.equal(out?.width, 270);
+});
+
+test("blurPreview: output keeps the teaser size and a garbage input yields no preview file", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "blur-"));
+  const dest = path.join(dir, "preview.mp4");
+  assert.equal(await blurPreview(path.join(import.meta.dirname, "fixtures/sample.webm"), dest, 270, 480), true);
+  const info = await probeVideo(dest);
+  assert.equal(info?.width, 270);
+  assert.equal(info?.height, 480);
+
+  writeFileSync(path.join(dir, "bad.mp4"), Buffer.alloc(5000, 3));
+  const bad = path.join(dir, "bad-out.mp4");
+  assert.equal(await blurPreview(path.join(dir, "bad.mp4"), bad, 270, 480), false);
+  assert.equal(existsSync(bad), false);
 });

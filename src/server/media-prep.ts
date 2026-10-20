@@ -70,6 +70,44 @@ async function toSeekableMp4(src: string, dest: string): Promise<{ width: number
 }
 
 /**
+ * Turns a rendered low-resolution teaser into a preview that cannot be un-blurred: the picture is squeezed to a
+ * ~27x48 thumbnail and scaled back up, audio is dropped. Returns false (and writes nothing usable) on any ffmpeg error.
+ */
+export async function blurPreview(src: string, dest: string, width: number, height: number): Promise<boolean> {
+  try {
+    await run(
+      binary("ffmpeg"),
+      [
+        "-y",
+        "-v",
+        "error",
+        "-i",
+        src,
+        "-an",
+        "-vf",
+        `scale=${Math.round(width / 10)}:${Math.round(height / 10)}:flags=area,scale=${width}:${height}:flags=bicubic`,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "30",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        dest,
+      ],
+      { timeout: 60_000 },
+    );
+  } catch {
+    await fs.rm(dest, { force: true }).catch(() => {});
+    return false;
+  }
+  return !!(await probeVideo(dest));
+}
+
+/**
  * Makes one staged media item safe to hand to Remotion. Videos are validated and normalised to mp4;
  * a broken video degrades to its poster screenshot, or to nothing (the composition then shows generated UI).
  * `publicDir` is the Remotion public dir, `media.src` is relative to it.
