@@ -24,16 +24,16 @@ interface LlmConfig {
 
 /** Reads LLM settings from the environment. Returns undefined when no key is configured (templates are used). */
 export function getLlmConfig(env: NodeJS.ProcessEnv = process.env): LlmConfig | undefined {
-  const provider = (env.LLM_PROVIDER as "openai" | "anthropic" | undefined) ?? (env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY && !env.LLM_API_KEY ? "anthropic" : "openai");
-  const apiKey = env.LLM_API_KEY ?? (provider === "anthropic" ? env.ANTHROPIC_API_KEY : env.OPENAI_API_KEY);
+  const provider = (env.LLM_PROVIDER as "openai" | "anthropic" | undefined) || (env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY && !env.LLM_API_KEY ? "anthropic" : "openai");
+  const apiKey = env.LLM_API_KEY || (provider === "anthropic" ? env.ANTHROPIC_API_KEY : env.OPENAI_API_KEY);
   if (!apiKey || env.AI_COPY === "0") return undefined;
   return {
     provider,
     apiKey,
-    model: env.LLM_MODEL ?? (provider === "anthropic" ? "claude-3-5-haiku-latest" : "gpt-4o-mini"),
-    baseUrl: (env.LLM_BASE_URL ?? (provider === "anthropic" ? "https://api.anthropic.com" : "https://api.openai.com/v1")).replace(/\/$/, ""),
-    language: env.COPY_LANGUAGE ?? "English",
-    timeoutMs: Number(env.LLM_TIMEOUT_MS ?? 45_000),
+    model: env.LLM_MODEL || (provider === "anthropic" ? "claude-3-5-haiku-latest" : "gpt-4o-mini"),
+    baseUrl: (env.LLM_BASE_URL || (provider === "anthropic" ? "https://api.anthropic.com" : "https://api.openai.com/v1")).replace(/\/$/, ""),
+    language: env.COPY_LANGUAGE || "English",
+    timeoutMs: Number(env.LLM_TIMEOUT_MS || 45_000),
   };
 }
 

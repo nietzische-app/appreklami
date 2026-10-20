@@ -36,6 +36,15 @@ test("no API key -> undefined and no request", async () => {
   assert.equal(called, false);
 });
 
+test("empty strings (as passed by docker compose) fall back to defaults", () => {
+  const cfg = getLlmConfig({ LLM_API_KEY: "k", LLM_PROVIDER: "", LLM_MODEL: "", LLM_BASE_URL: "", COPY_LANGUAGE: "Turkish" } as NodeJS.ProcessEnv);
+  assert.equal(cfg?.provider, "openai");
+  assert.equal(cfg?.model, "gpt-4o-mini");
+  assert.equal(cfg?.baseUrl, "https://api.openai.com/v1");
+  assert.equal(cfg?.language, "Turkish");
+  assert.equal(getLlmConfig({ LLM_API_KEY: "" } as NodeJS.ProcessEnv), undefined);
+});
+
 test("AI_COPY=0 disables the feature", () => {
   assert.equal(getLlmConfig({ LLM_API_KEY: "k", AI_COPY: "0" } as NodeJS.ProcessEnv), undefined);
 });
