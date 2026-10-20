@@ -89,7 +89,7 @@ cd web && npm install && npm run dev   # UI on :5173, proxies /api and /renders 
 So the deployment is split:
 
 1. **API** on a long-lived host (Fly.io / Railway / Render / VPS) using the `Dockerfile` (default `DEFAULT_PLAN=free`).
-   Set `CORS_ORIGIN=https://<your-site>.netlify.app`. Give it a persistent volume for `public/renders` (or add S3 later).
+   Set `CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app` (already the default in the `Dockerfile`). Give it a persistent volume for `public/renders` (or add S3 later).
 2. **UI** on Netlify: connect the repo (`netlify.toml` already sets base `web`, build `npm run build`, publish `dist`) and set the
    env var `VITE_API_URL=https://<your-api-host>`.
 

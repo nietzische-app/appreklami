@@ -13,6 +13,7 @@ RUN npm ci
 COPY . .
 RUN npx remotion browser ensure
 
-ENV NODE_ENV=production PORT=3000 DEFAULT_PLAN=free
+ENV NODE_ENV=production PORT=3000 DEFAULT_PLAN=free \
+    CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app
 EXPOSE 3000
 CMD ["npm", "start"]
