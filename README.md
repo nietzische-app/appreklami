@@ -64,13 +64,21 @@ Overall progress: 0-5% analysis, then the remaining 95% is split evenly over the
 
 `src/analyzer/media-fetcher.ts` decides what is shown inside the phone mockup (never an empty frame):
 
-1. **Live demo** - `findLiveUrl` (package.json `homepage`, README links ranked by label/position, badges/code hosts/deploy buttons ignored)
-   -> Playwright (reusing Remotion's Chrome) opens it in a 540x960 mobile viewport and records a 10s smooth scroll as webm
-   (`media/live/live-demo.webm` + poster). Every request is checked by an SSRF guard (public IPs only, http/https, no credentials).
+1. **Live site** (`media/live-capture.ts`, rules in `media/page-guard.ts`) - `findLiveUrl` (package.json `homepage`, README links
+   ranked by label/position, badges/code hosts/deploy buttons ignored) gives the product URL. Only public showcase pages are used:
+   `/`, `/features`, `/product`, `/solutions`, `/docs` (an `app.`/`dashboard.` subdomain is replaced by its marketing domain first).
+   - Login/sign-up screens are never filmed: URLs containing `/login`, `/signin`, `/auth`, `/register`, `/signup` (and redirects to
+     them) are skipped, and so are pages whose rendered DOM shows a visible `input[type=password]` or a dominant sign-in form.
+     Near-empty pages (profile stubs) are only used when nothing better exists. Pages are probed in a context that records nothing.
+   - Product imagery found on the good pages (large screenshots, dashboard shots, demo `<video>` files) is downloaded through the
+     SSRF guard and ranked ahead of repo assets; logos, avatars and low-contrast decorative art (grids, gradients) are discarded.
+   - Up to two good pages are recorded in a 540x960 mobile viewport with smooth `window.scrollBy({ top: 500, behavior: 'smooth' })`
+     steps (bouncing back to the top at the bottom). Nothing is clicked except cookie-banner accept buttons.
+   Every request is checked by an SSRF guard (public IPs only, http/https, no credentials).
 2. **Repo assets** - README hero/showcase images (local and GitHub-hosted), OpenGraph cards (`og-image.png`), screenshot-named files,
    and large images in asset folders (`apps/*/public`, `packages/*/assets`, `docs/images`, `.github/assets`). Image headers are read to
    reject icons/banners/odd aspect ratios. PNG/JPG/WebP/GIF (GIF renders as a still).
-3. **Generated UI** - `DynamicGeneratedUI` (Remotion) builds a dashboard (SaaS), feed (mobile) or HUD (game) from the README features
+3. **Generated UI** (also used when every page needs a login) - `DynamicGeneratedUI` (Remotion) builds a dashboard (SaaS), feed (mobile) or HUD (game) from the README headings/features
    and slowly scrolls it. `PhoneMockup` falls back to it whenever `media` is empty.
 
 Set `LIVE_CAPTURE=0` to disable step 1. Notes on what was tried are in `analysis.mediaNotes`.

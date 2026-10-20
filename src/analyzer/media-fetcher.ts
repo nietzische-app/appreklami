@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { MediaAsset, MediaOrigin } from "../shared/types";
 import { pickImages, toImageAssets } from "./images";
-import { captureLiveDemo } from "./media/live-capture";
+import { captureLiveSite } from "./media/live-capture";
 import { findLiveUrl } from "./media/live-url";
 import type { ReadmeInfo } from "./readme";
 import { fetchReadmeImages } from "./remoteImages";
@@ -35,7 +35,8 @@ const MAX_MEDIA = 4;
 
 /**
  * Multi-step media search (stops being "empty" at the first step that yields something):
- *  1. Live demo: URL from package.json/README -> Playwright mobile recording (10s scroll).
+ *  1. Live site: URL from package.json/README -> public product pages only (login/sign-up screens are skipped) ->
+ *     product screenshots/demo videos found on them + Playwright smooth-scroll recordings.
  *  2. Repo assets: README hero images (local + GitHub-hosted), OG cards, screenshots, monorepo asset dirs.
  *  3. Nothing found -> origin "generated-ui": the Remotion phone renders a dashboard built from the README features.
  */
@@ -49,11 +50,15 @@ export async function fetchMedia(input: MediaFetchInput): Promise<MediaFetchResu
   notes.push(liveUrl ? `live url candidate: ${liveUrl}` : "no live url found in README/package.json");
 
   if (liveUrl && input.liveCapture) {
-    const recording = await captureLiveDemo(liveUrl, path.join(tempDir, "live"), notes);
-    if (recording) {
-      media.push(recording);
+    const live = await captureLiveSite(liveUrl, path.join(tempDir, "live"), notes);
+    // Scrolling recordings first (motion), then product shots found on the site, both before anything from the repo.
+    for (const asset of [...live.recordings, ...live.showcase]) {
+      if (media.length >= MAX_MEDIA) break;
+      media.push(asset);
+    }
+    if (media.length) {
       origin = "live-demo";
-      notes.push(`live demo recorded (${recording.durationSec}s)`);
+      notes.push(`live media: ${live.recordings.length} recording(s), ${live.showcase.length} showcase asset(s)`);
     }
   } else if (liveUrl) {
     notes.push("live capture disabled");
