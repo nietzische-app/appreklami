@@ -75,6 +75,15 @@ Overall progress: 0-5% analysis, then the remaining 95% is split evenly over the
 
 Set `LIVE_CAPTURE=0` to disable step 1. Notes on what was tried are in `analysis.mediaNotes`.
 
+### Audio sync
+
+Sound and picture share one timing table, `src/remotion/sync.ts`. A sound's `hit` is the absolute frame where its
+transient lands: the frame of peak velocity for springs (computed with `spring()`), the midpoint of linear fades, the
+first frame of a cut. `scripts/generate-sfx.ts` pads every WAV (48 kHz, Remotion's mix rate) so its transient sits on a
+whole frame and writes `src/remotion/sfx-manifest.ts`; `<Sfx hit={...}>` starts the clip that many frames earlier.
+After changing any timing or sound run `npm run verify:audio`: it renders each composition and reports, per sound, how many
+milliseconds the transient landed from its target (currently under 4 ms, 0.1 frame).
+
 ### Render safety
 
 A broken asset must never kill a job (Remotion's `OffthreadVideo` crashes with `const json = await res.json()` when its

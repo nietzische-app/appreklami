@@ -4,9 +4,10 @@ import type { MediaAsset, VideoProps } from "../../shared/types";
 import { Background } from "../components/Background";
 import { Fade } from "../components/Fade";
 import { PhoneMockup } from "../components/PhoneMockup";
-import { Sfx } from "../components/Sfx";
+import { SfxTrack } from "../components/Sfx";
 import { Watermark } from "../components/Watermark";
 import { FONT_SANS, fitFont } from "../theme";
+import { BASIC_FADE_IN, basicSfxEvents } from "../sync";
 import { HOOK, OUTRO, featureScene } from "../timeline";
 
 const Title: React.FC<{ children: string; size?: number }> = ({ children, size = 96 }) => (
@@ -27,7 +28,7 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
     <AbsoluteFill style={{ fontFamily: FONT_SANS, background: "#0b0d1a" }}>
       <Sequence from={HOOK.from} durationInFrames={HOOK.duration}>
         <Background image={img(0)} accent={p.accent} accent2={p.accent2} />
-        <Fade>
+        <Fade inFrames={BASIC_FADE_IN.hook}>
           <AbsoluteFill style={{ alignItems: "center", paddingTop: 150 }}>
             <PhoneMockup media={mediaAt(0)} project={p} sceneIndex={-1} videoOffsetFrames={HOOK.from} width={620} height={980} />
           </AbsoluteFill>
@@ -42,7 +43,7 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
         return (
           <Sequence key={f.title} from={s.from} durationInFrames={s.duration}>
             <Background image={img(i)} accent={p.accent} accent2={p.accent2} />
-            <Fade>
+            <Fade inFrames={BASIC_FADE_IN.feature}>
               <AbsoluteFill style={{ alignItems: "center", paddingTop: 150 }}>
                 <PhoneMockup media={mediaAt(i)} project={p} sceneIndex={i} videoOffsetFrames={s.from} width={620} height={980} />
               </AbsoluteFill>
@@ -58,7 +59,7 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
 
       <Sequence from={OUTRO.from} durationInFrames={OUTRO.duration}>
         <Background image={img(0)} accent={p.accent} accent2={p.accent2} blur={55} />
-        <Fade inFrames={14} outFrames={1}>
+        <Fade inFrames={BASIC_FADE_IN.outro} outFrames={1}>
           <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px", gap: 56 }}>
             <PhoneMockup media={mediaAt(0)} project={p} sceneIndex={3} videoOffsetFrames={OUTRO.from} width={420} height={660} />
             <Title size={90}>{p.outro}</Title>
@@ -67,11 +68,7 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
         </Fade>
       </Sequence>
 
-      <Sfx src="sfx/soft-chime.wav" at={HOOK.from + 4} volume={0.6} />
-      {p.features.map((f, i) => (
-        <Sfx key={f.title} src="sfx/soft-whoosh.wav" at={featureScene(i).from} volume={0.5} />
-      ))}
-      <Sfx src="sfx/soft-chime.wav" at={OUTRO.from} volume={0.7} />
+      <SfxTrack events={basicSfxEvents(p.features.length)} />
 
       {p.watermark ? <Watermark /> : null}
     </AbsoluteFill>

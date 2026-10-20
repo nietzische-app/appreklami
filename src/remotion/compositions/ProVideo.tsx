@@ -3,12 +3,9 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { VideoProps } from "../../shared/types";
 import { DynamicCamera, ScreenShake, decay } from "../components/Camera";
 import { KineticScenes } from "../components/KineticScenes";
-import { Sfx } from "../components/Sfx";
+import { SfxTrack } from "../components/Sfx";
 import { Watermark } from "../components/Watermark";
-import { HOOK, OUTRO, featureScene } from "../timeline";
-
-/** Scene cuts are the "hits": each one punches the camera in and shakes the screen. */
-export const PRO_BEATS = [HOOK.from + 2, featureScene(0).from, featureScene(1).from, featureScene(2).from, OUTRO.from];
+import { PRO_BEATS, proSfxEvents } from "../sync";
 
 const Vignette: React.FC = () => {
   const frame = useCurrentFrame();
@@ -36,11 +33,7 @@ export const ProVideo: React.FC<VideoProps> = (p) => {
         <Vignette />
         {p.watermark ? <Watermark /> : null}
       </AbsoluteFill>
-      {PRO_BEATS.map((b) => (
-        <Sfx key={b} src="sfx/impact.wav" at={b} volume={0.8} />
-      ))}
-      <Sfx src="sfx/riser.wav" at={0} volume={0.45} />
-      <Sfx src="sfx/shimmer.wav" at={OUTRO.from + 20} volume={0.5} />
+      <SfxTrack events={proSfxEvents()} />
     </AbsoluteFill>
   );
 };

@@ -13,7 +13,8 @@
     "studio": "remotion studio src/remotion/index.ts --public-dir=assets",
     "sfx": "tsx scripts/generate-sfx.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"tests/**/*.test.ts\""
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "verify:audio": "tsx scripts/verify-audio-sync.ts"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.537",

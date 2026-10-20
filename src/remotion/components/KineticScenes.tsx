@@ -2,11 +2,12 @@ import React from "react";
 import { AbsoluteFill, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { MediaAsset, VideoProps } from "../../shared/types";
 import { FONT_MONO, FONT_SANS, fitFont } from "../theme";
+import { CTA_SPRING, FEATURE_DESC_RAMP, FEATURE_TITLE_DELAY, HOOK_WORD_DELAY, HOOK_WORD_STAGGER, OUTRO_CTA_DELAY, arcadeSfxEvents } from "../sync";
 import { HOOK, OUTRO, featureScene } from "../timeline";
 import { Background } from "./Background";
 import { Fade } from "./Fade";
 import { PhoneMockup } from "./PhoneMockup";
-import { Sfx } from "./Sfx";
+import { SfxTrack } from "./Sfx";
 import { WordReveal } from "./WordReveal";
 
 export type Variant = "arcade" | "pro";
@@ -70,7 +71,7 @@ export const KineticScenes: React.FC<Props> = ({ variant, ...p }) => {
             <Card project={p} asset={mediaAt(0)} sceneIndex={-1} videoOffsetFrames={HOOK.from} enterFrom="bottom" width={600} height={940} />
           </AbsoluteFill>
           <AbsoluteFill style={{ justifyContent: "flex-end", padding: "0 70px 260px" }}>
-            <WordReveal text={p.hook} delay={6} stagger={5} style={{ ...st.headline, fontSize: fitFont(p.hook, 108, 62) }} />
+            <WordReveal text={p.hook} delay={HOOK_WORD_DELAY} stagger={HOOK_WORD_STAGGER} style={{ ...st.headline, fontSize: fitFont(p.hook, 108, 62) }} />
           </AbsoluteFill>
         </Fade>
       </Sequence>
@@ -97,7 +98,7 @@ export const KineticScenes: React.FC<Props> = ({ variant, ...p }) => {
         </Fade>
       </Sequence>
 
-      {arcade ? <ArcadeSfx words={hookWords.length} features={p.features.length} /> : null}
+      {arcade ? <SfxTrack events={arcadeSfxEvents(hookWords.length, p.features.length)} /> : null}
     </AbsoluteFill>
   );
 };
@@ -112,7 +113,7 @@ const FeatureText: React.FC<{
   arcade: boolean;
 }> = ({ index, total, title, description, accent, headline, arcade }) => {
   const frame = useCurrentFrame();
-  const descIn = interpolate(frame, [18, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const descIn = interpolate(frame, FEATURE_DESC_RAMP, [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", padding: "0 70px 240px", gap: 26 }}>
       <div style={{ display: "flex", gap: 16 }}>
@@ -128,7 +129,7 @@ const FeatureText: React.FC<{
           />
         ))}
       </div>
-      <WordReveal text={title} delay={2} stagger={4} style={{ ...headline, fontSize: fitFont(title, 96, 60) }} />
+      <WordReveal text={title} delay={FEATURE_TITLE_DELAY} stagger={4} style={{ ...headline, fontSize: fitFont(title, 96, 60) }} />
       <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 46, textAlign: "center", lineHeight: 1.3, opacity: descIn, transform: `translateY(${(1 - descIn) * 30}px)`, textTransform: "none" }}>
         {description}
       </div>
@@ -139,7 +140,7 @@ const FeatureText: React.FC<{
 const Outro: React.FC<VideoProps & { headline: React.CSSProperties; arcade: boolean }> = ({ headline, arcade, ...p }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pop = spring({ frame: frame - 24, fps, config: { damping: 8, stiffness: 140 } });
+  const pop = spring({ frame: frame - OUTRO_CTA_DELAY, fps, config: CTA_SPRING });
   const pulse = 1 + Math.sin(frame / 5) * 0.04;
   const blinkOn = !arcade || Math.floor(frame / 8) % 2 === 0;
   return (
@@ -164,18 +165,3 @@ const Outro: React.FC<VideoProps & { headline: React.CSSProperties; arcade: bool
     </AbsoluteFill>
   );
 };
-
-const ArcadeSfx: React.FC<{ words: number; features: number }> = ({ words, features }) => (
-  <>
-    {Array.from({ length: words }).map((_, i) => (
-      <Sfx key={`w${i}`} src="sfx/arcade-blip.wav" at={HOOK.from + 6 + i * 5} volume={0.35} />
-    ))}
-    {Array.from({ length: features }).map((_, i) => (
-      <React.Fragment key={`f${i}`}>
-        <Sfx src="sfx/arcade-coin.wav" at={featureScene(i).from + 2} volume={0.55} />
-        <Sfx src="sfx/arcade-blip.wav" at={featureScene(i).from + 18} volume={0.3} />
-      </React.Fragment>
-    ))}
-    <Sfx src="sfx/arcade-powerup.wav" at={OUTRO.from + 2} volume={0.6} />
-  </>
-);

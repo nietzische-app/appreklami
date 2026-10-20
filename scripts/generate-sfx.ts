@@ -4,8 +4,10 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { FPS } from "../src/shared/video";
 
-const SAMPLE_RATE = 44100;
+/** Remotion mixes audio at 48 kHz; matching it avoids resampling. */
+const SAMPLE_RATE = 48000;
 type Wave = "square" | "sine" | "triangle" | "noise";
 
 const outDir = path.resolve("assets/sfx");
@@ -69,11 +71,42 @@ function render(notes: Note[], tail = 0.05): Float32Array {
   return out;
 }
 
-function writeWav(name: string, samples: Float32Array): void {
+/** Where the "hit" of each sound sits in the file (seconds) and the whole-frame position it is padded to. */
+const manifest: Record<string, { hitSec: number; hitFrames: number; durationSec: number }> = {};
+
+/** Time of the loudest 20 ms RMS window (smoothed so random noise spikes do not decide the answer). */
+function peakTime(samples: Float32Array): number {
+  const w = Math.round(SAMPLE_RATE * 0.02);
+  const hop = Math.round(SAMPLE_RATE * 0.005);
+  let best = 0;
+  let at = 0;
+  for (let i = 0; i + w <= samples.length; i += hop) {
+    let sum = 0;
+    for (let j = 0; j < w; j++) sum += samples[i + j] * samples[i + j];
+    if (sum > best) {
+      best = sum;
+      at = i + w / 2;
+    }
+  }
+  return at / SAMPLE_RATE;
+}
+
+/**
+ * `hit` is the instant that must line up with the visual (seconds from the start of the sound, or "peak").
+ * Leading silence is added so the hit lands on an exact frame boundary; the compositions then start the
+ * sound `hitFrames` early and the hit falls on the intended frame with no sub-frame rounding error.
+ */
+function writeWav(name: string, raw: Float32Array, hit: number | "peak"): void {
+  const hitSec = hit === "peak" ? peakTime(raw) : hit;
+  const hitFrames = Math.ceil(hitSec * FPS - 1e-6);
+  const pad = Math.round((hitFrames / FPS - hitSec) * SAMPLE_RATE);
+  const samples = new Float32Array(raw.length + pad);
+  samples.set(raw, pad);
+
   const data = Buffer.alloc(samples.length * 2);
   for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    data.writeInt16LE(Math.round(s * 32767), i * 2);
+    const v = Math.max(-1, Math.min(1, samples[i]));
+    data.writeInt16LE(Math.round(v * 32767), i * 2);
   }
   const header = Buffer.alloc(44);
   header.write("RIFF", 0);
@@ -89,24 +122,25 @@ function writeWav(name: string, samples: Float32Array): void {
   header.writeUInt16LE(16, 34);
   header.write("data", 36);
   header.writeUInt32LE(data.length, 40);
-  writeFileSync(path.join(outDir, name), Buffer.concat([header, data]));
-  console.log(`wrote ${name} (${(samples.length / SAMPLE_RATE).toFixed(2)}s)`);
+  writeFileSync(path.join(outDir, `${name}.wav`), Buffer.concat([header, data]));
+  manifest[name] = { hitSec: hitFrames / FPS, hitFrames, durationSec: samples.length / SAMPLE_RATE };
+  console.log(`wrote ${name}.wav (${(samples.length / SAMPLE_RATE).toFixed(2)}s, hit at frame +${hitFrames})`);
 }
 
 // Basic (standard, soft)
-writeWav("soft-chime.wav", render([
+writeWav("soft-chime", render([
   { freq: 880, duration: 0.5, wave: "sine", volume: 0.35 },
   { freq: 1318.5, duration: 0.6, wave: "sine", volume: 0.25, start: 0.08 },
-]));
-writeWav("soft-whoosh.wav", render([{ freq: 0, duration: 0.45, wave: "noise", volume: 0.3, attack: 0.15 }]));
+]), 0);
+writeWav("soft-whoosh", render([{ freq: 0, duration: 0.45, wave: "noise", volume: 0.3, attack: 0.15 }]), "peak");
 
 // Dynamic (8-bit / arcade)
-writeWav("arcade-blip.wav", render([{ freq: 660, duration: 0.07, wave: "square", volume: 0.3, crush: 8 }]));
-writeWav("arcade-coin.wav", render([
+writeWav("arcade-blip", render([{ freq: 660, duration: 0.07, wave: "square", volume: 0.3, crush: 8 }]), 0);
+writeWav("arcade-coin", render([
   { freq: 987.8, duration: 0.07, wave: "square", volume: 0.3, crush: 8 },
   { freq: 1318.5, duration: 0.35, wave: "square", volume: 0.3, crush: 8, start: 0.07 },
-]));
-writeWav("arcade-powerup.wav", render(
+]), 0.07);
+writeWav("arcade-powerup", render(
   [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].map((freq, i) => ({
     freq,
     duration: 0.09,
@@ -115,18 +149,18 @@ writeWav("arcade-powerup.wav", render(
     crush: 8,
     start: i * 0.075,
   })).concat([{ freq: 1568, duration: 0.4, wave: "square" as const, volume: 0.28, crush: 8, start: 0.45 }]),
-));
+), 0.45);
 
 // PRO (cinematic hits)
-writeWav("impact.wav", render([
+writeWav("impact", render([
   { freq: 140, freqEnd: 38, duration: 0.55, wave: "sine", volume: 0.9 },
   { freq: 0, duration: 0.25, wave: "noise", volume: 0.5 },
-]));
-writeWav("riser.wav", render([
+]), 0);
+writeWav("riser", render([
   { freq: 0, duration: 1.0, wave: "noise", volume: 0.18, attack: 0.9 },
   { freq: 220, freqEnd: 880, duration: 1.0, wave: "triangle", volume: 0.12, attack: 0.9 },
-]));
-writeWav("shimmer.wav", render(
+]), "peak");
+writeWav("shimmer", render(
   [1318.5, 1760, 2093, 2637].map((freq, i) => ({
     freq,
     duration: 0.9,
@@ -134,4 +168,11 @@ writeWav("shimmer.wav", render(
     volume: 0.14,
     start: i * 0.06,
   })),
-));
+), 0);
+
+const names = Object.keys(manifest);
+const lines = names.map((n) => `  "${n}": { file: "sfx/${n}.wav", hitFrames: ${manifest[n].hitFrames}, durationSec: ${manifest[n].durationSec.toFixed(3)} },`);
+writeFileSync(
+  path.resolve("src/remotion/sfx-manifest.ts"),
+  `// Generated by scripts/generate-sfx.ts (npm run sfx). Do not edit.\nexport const SFX = {\n${lines.join("\n")}\n} as const;\n\nexport type SfxName = keyof typeof SFX;\n`,
+);

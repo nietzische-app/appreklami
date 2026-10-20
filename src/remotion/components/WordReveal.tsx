@@ -1,5 +1,6 @@
 import React from "react";
 import { spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { WORD_SPRING, WORD_SPRING_SOFT } from "../sync";
 
 interface Props {
   text: string;
@@ -20,7 +21,7 @@ export const WordReveal: React.FC<Props> = ({ text, delay = 0, stagger = 4, styl
         const p = spring({
           frame: frame - delay - i * stagger,
           fps,
-          config: bouncy ? { damping: 9, stiffness: 160, mass: 0.7 } : { damping: 200 },
+          config: bouncy ? WORD_SPRING : WORD_SPRING_SOFT,
         });
         return (
           <span
