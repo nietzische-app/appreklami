@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { fetchJsonSafe } from "./http";
 import type { ProjectType, Storyboard } from "../shared/types";
 
 export interface CopyInput {
@@ -101,34 +102,42 @@ async function callLlm(cfg: LlmConfig, input: CopyInput, fetchImpl: typeof fetch
   const user = userPrompt(input, cfg.language);
   const signal = AbortSignal.timeout(cfg.timeoutMs);
   if (cfg.provider === "anthropic") {
-    const res = await fetchImpl(`${cfg.baseUrl}/v1/messages`, {
+    const res = await fetchJsonSafe<{ content?: { type: string; text?: string }[] }>(
+      fetchImpl,
+      `${cfg.baseUrl}/v1/messages`,
+      {
+        method: "POST",
+        signal,
+        headers: { "content-type": "application/json", "x-api-key": cfg.apiKey, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: cfg.model, max_tokens: 1200, temperature: 0.8, system: SYSTEM, messages: [{ role: "user", content: user }] }),
+      },
+      {},
+    );
+    if (!res.ok) throw new Error(`LLM ${res.error}`);
+    return res.data.content?.map((c) => c.text ?? "").join("") ?? "";
+  }
+  const res = await fetchJsonSafe<{ choices?: { message?: { content?: string } }[] }>(
+    fetchImpl,
+    `${cfg.baseUrl}/chat/completions`,
+    {
       method: "POST",
       signal,
-      headers: { "content-type": "application/json", "x-api-key": cfg.apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: cfg.model, max_tokens: 1200, temperature: 0.8, system: SYSTEM, messages: [{ role: "user", content: user }] }),
-    });
-    if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
-    const data = (await res.json()) as { content?: { type: string; text?: string }[] };
-    return data.content?.map((c) => c.text ?? "").join("") ?? "";
-  }
-  const res = await fetchImpl(`${cfg.baseUrl}/chat/completions`, {
-    method: "POST",
-    signal,
-    headers: { "content-type": "application/json", authorization: `Bearer ${cfg.apiKey}` },
-    body: JSON.stringify({
-      model: cfg.model,
-      temperature: 0.8,
-      max_tokens: 1200,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return data.choices?.[0]?.message?.content ?? "";
+      headers: { "content-type": "application/json", authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 0.8,
+        max_tokens: 1200,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: user },
+        ],
+      }),
+    },
+    {},
+  );
+  if (!res.ok) throw new Error(`LLM ${res.error}`);
+  return res.data.choices?.[0]?.message?.content ?? "";
 }
 
 const cache = new Map<string, Storyboard[]>();

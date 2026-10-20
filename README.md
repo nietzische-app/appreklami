@@ -75,7 +75,22 @@ Overall progress: 0-5% analysis, then the remaining 95% is split evenly over the
 
 Set `LIVE_CAPTURE=0` to disable step 1. Notes on what was tried are in `analysis.mediaNotes`.
 
-## Architecture
+### Render safety
+
+A broken asset must never kill a job (Remotion's `OffthreadVideo` crashes with `const json = await res.json()` when its
+frame server cannot decode a file). Layers, outermost first:
+
+1. `src/server/media-prep.ts` validates every staged file with ffprobe and re-encodes recordings to a seekable H.264 mp4.
+   Unplayable videos become their screenshot, or nothing (generated UI).
+2. `renderWithFallback` (`src/server/pipeline.ts`): if Remotion still fails because of media, the video is re-rendered with
+   videos replaced by screenshots, then with no media at all.
+3. `src/remotion/props.ts` (`normalizeVideoProps`, wired in via `calculateMetadata`) fills missing/malformed props with
+   defaults and drops broken media entries.
+4. `explainRenderError` (`src/server/renderer.ts`) turns Remotion's stderr into a short UI message (media / memory /
+   timeout / browser); the raw stderr tail is logged on the server only.
+5. `fetchJsonSafe` (`src/analyzer/http.ts`) is a non-throwing fetch + `res.json()` used for the LLM calls.
+
+
 
 - `src/analyzer/` - source resolution (shallow `git clone` for GitHub; symlink-safe, path-restricted local folders),
   README parsing (title, tagline, feature bullets, image refs), project-type classifier (game / mobile-app / saas-web from

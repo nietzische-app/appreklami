@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { analyzeProject, resolveSource } from "../analyzer";
+import { normalizeVideoProps } from "../remotion/props";
 import { PALETTES } from "../remotion/theme";
 import { TIERS, outputFileName } from "../shared/tiers";
 import type { MediaAsset, Plan, ProjectAnalysis, SourceInput, TierConfig, VideoProps } from "../shared/types";
 import { config } from "./config";
 import { jobStore } from "./jobStore";
-import { CancelledError, renderWithRemotionCli } from "./renderer";
+import { degradeMedia, prepareMedia } from "./media-prep";
+import { CancelledError, RenderError, renderWithRemotionCli } from "./renderer";
 
 const SAFE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".webm", ".mp4"]);
 
@@ -28,17 +30,22 @@ async function stageAssets(jobId: string, analysis: ProjectAnalysis): Promise<{ 
 
   const media: MediaAsset[] = [];
   for (const [i, m] of analysis.media.entries()) {
-    const src = await copy(m.src, `m${i + 1}`);
-    if (!src) continue;
-    const poster = m.poster ? await copy(m.poster, `m${i + 1}-poster`) : undefined;
-    media.push({ ...m, src, poster });
+    try {
+      const src = await copy(m.src, `m${i + 1}`);
+      if (!src) continue;
+      const poster = m.poster ? await copy(m.poster, `m${i + 1}-poster`).catch(() => undefined) : undefined;
+      const ready = await prepareMedia(publicDir, { ...m, src, poster }, analysis.mediaNotes);
+      if (ready) media.push(ready);
+    } catch (err) {
+      analysis.mediaNotes.push(`media skipped: ${(err as Error).message.split("\n")[0]}`);
+    }
   }
   return { publicDir, media };
 }
 
 export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, media: MediaAsset[], index: number): VideoProps {
   const story = analysis.storyboards[index % analysis.storyboards.length];
-  return {
+  return normalizeVideoProps({
     projectName: analysis.name,
     projectType: analysis.projectType,
     tagline: analysis.tagline,
@@ -49,7 +56,58 @@ export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, med
     media,
     watermark: tier.watermark,
     ...PALETTES[analysis.projectType],
-  };
+  });
+}
+
+/**
+ * Renders one video. If Remotion fails because of media (broken recording, unreadable image) the render is retried with
+ * safer media: first videos become screenshots, then everything becomes the generated UI. A job therefore only fails for
+ * problems that are not caused by the media.
+ */
+export async function renderWithFallback(
+  jobId: string,
+  index: number,
+  tier: TierConfig,
+  analysis: ProjectAnalysis,
+  media: MediaAsset[],
+  publicDir: string,
+  outFile: string,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  const attempts: MediaAsset[][] = [media];
+  for (const level of [1, 2] as const) {
+    const next = degradeMedia(media, level);
+    if (next.length !== attempts[attempts.length - 1].length || next.some((m, i) => m !== attempts[attempts.length - 1][i])) attempts.push(next);
+  }
+
+  let lastError: unknown;
+  for (const [attempt, attemptMedia] of attempts.entries()) {
+    const propsFile = path.join(config.workDir, jobId, `props-${tier.id}-${attempt}.json`);
+    await fs.writeFile(propsFile, JSON.stringify(buildVideoProps(analysis, tier, attemptMedia, index)));
+    try {
+      await renderWithRemotionCli({
+        tier,
+        publicDir,
+        propsFile,
+        outFile,
+        signal,
+        onProgress: (pct) =>
+          jobStore.update(jobId, (j) => {
+            j.videos[index].progress = pct;
+          }),
+      });
+      return;
+    } catch (err) {
+      lastError = err;
+      const retryable = err instanceof RenderError && err.kind === "media" && attempt < attempts.length - 1;
+      if (!retryable) throw err;
+      console.warn(`[render] job ${jobId} ${tier.id}: media error, retrying with safer media (attempt ${attempt + 2}/${attempts.length})`);
+      jobStore.update(jobId, (j) => {
+        j.videos[index].progress = 0;
+      });
+    }
+  }
+  throw lastError;
 }
 
 const controllers = new Map<string, AbortController>();
@@ -114,25 +172,14 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
         j.videos[index].status = "rendering";
         j.videos[index].progress = 0;
       });
-      const propsFile = path.join(config.workDir, jobId, `props-${tier.id}.json`);
-      await fs.writeFile(propsFile, JSON.stringify(buildVideoProps(analysis, tier, media, index)));
       const fileName = outputFileName(tier);
 
       try {
-        await renderWithRemotionCli({
-          tier,
-          publicDir,
-          propsFile,
-          outFile: path.join(outDir, fileName),
-          signal,
-          onProgress: (pct) =>
-            jobStore.update(jobId, (j) => {
-              j.videos[index].progress = pct;
-            }),
-        });
+        await renderWithFallback(jobId, index, tier, analysis, media, publicDir, path.join(outDir, fileName), signal);
       } catch (err) {
         if (err instanceof CancelledError || signal?.aborted) throw new CancelledError();
         const message = (err as Error).message;
+        console.error(`[render] job ${jobId} ${tier.id} failed: ${message}${err instanceof RenderError ? `\n${err.detail}` : ""}`);
         jobStore.update(jobId, (j) => {
           j.videos[index].status = "failed";
           j.videos[index].error = message;

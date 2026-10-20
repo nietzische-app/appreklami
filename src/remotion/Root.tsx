@@ -5,26 +5,12 @@ import type { VideoProps } from "../shared/types";
 import { BasicVideo } from "./compositions/BasicVideo";
 import { DynamicVideo } from "./compositions/DynamicVideo";
 import { ProVideo } from "./compositions/ProVideo";
-import { PALETTES } from "./theme";
+import { defaultProps, normalizeVideoProps } from "./props";
 
-export const defaultProps: VideoProps = {
-  projectName: "Demo Project",
-  projectType: "saas-web",
-  tagline: "A demo project for previewing compositions.",
-  hook: "Ship faster with Demo Project.",
-  features: [
-    { title: "Launch in minutes", description: "Skip the setup, start with results." },
-    { title: "One clear dashboard", description: "See everything that matters at a glance." },
-    { title: "Automate the busywork", description: "Let Demo Project handle the repetitive parts." },
-  ],
-  outro: "Work smarter.",
-  cta: "Start free",
-  media: [],
-  watermark: true,
-  ...PALETTES["saas-web"],
-};
+const calculateMetadata = ({ props }: { props: VideoProps }) => ({ props: normalizeVideoProps(props) });
 
 const common = {
+  calculateMetadata,
   durationInFrames: DURATION_FRAMES,
   fps: FPS,
   width: VIDEO_WIDTH,
