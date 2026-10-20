@@ -66,7 +66,16 @@ export async function resolveSource(source: SourceInput): Promise<ResolvedSource
     });
   } catch (err) {
     await fs.rm(tmp, { recursive: true, force: true });
-    throw new SourceError(`Could not clone ${cloneUrl}: ${(err as Error).message.split("\n")[0]}`);
+    const stderr = String((err as { stderr?: string }).stderr ?? "");
+    if (/not found|could not read Username|Authentication failed|terminal prompts disabled/i.test(stderr)) {
+      throw new SourceError(
+        "Repository not found or it is private. Only public GitHub repositories are supported - make the repo public or check the URL.",
+      );
+    }
+    if (/timed out|killed/i.test((err as Error).message) || (err as { killed?: boolean }).killed) {
+      throw new SourceError("Cloning the repository timed out. Try a smaller repository.");
+    }
+    throw new SourceError(`Could not clone ${cloneUrl}: ${stderr.split("\n").find(Boolean) ?? "unknown error"}`);
   }
   return {
     root: target,
