@@ -1,5 +1,5 @@
-export type VideoStatus = "pending" | "rendering" | "completed" | "failed" | "skipped";
-export type JobStatus = "queued" | "analyzing" | "rendering" | "completed" | "failed";
+export type VideoStatus = "pending" | "rendering" | "completed" | "failed" | "skipped" | "cancelled";
+export type JobStatus = "queued" | "analyzing" | "rendering" | "completed" | "failed" | "cancelled";
 
 export interface Video {
   tier: "basic" | "dynamic" | "pro";

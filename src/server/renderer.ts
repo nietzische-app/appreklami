@@ -3,6 +3,12 @@ import path from "node:path";
 import type { TierConfig } from "../shared/types";
 import { config } from "./config";
 
+export class CancelledError extends Error {
+  constructor() {
+    super("Cancelled");
+  }
+}
+
 export interface RenderOptions {
   tier: TierConfig;
   /** Remotion --public-dir for this job (sfx + staged images). */
@@ -10,6 +16,8 @@ export interface RenderOptions {
   /** JSON file with the composition props (VideoProps). */
   propsFile: string;
   outFile: string;
+  /** Aborting kills the Remotion process tree. */
+  signal?: AbortSignal;
   /** 0..100 */
   onProgress: (percent: number) => void;
 }
@@ -61,7 +69,21 @@ export function renderWithRemotionCli(opts: RenderOptions): Promise<void> {
       cwd: path.resolve("."),
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
       stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
     });
+    const killTree = () => {
+      try {
+        if (child.pid) process.kill(-child.pid, "SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
+    };
+    const onAbort = () => {
+      killTree();
+      reject(new CancelledError());
+    };
+    if (opts.signal?.aborted) return onAbort();
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
 
     const parse = createProgressParser(opts.onProgress);
     const tail: string[] = [];
@@ -82,7 +104,7 @@ export function renderWithRemotionCli(opts: RenderOptions): Promise<void> {
     child.stderr.on("data", onData);
 
     const timer = setTimeout(() => {
-      child.kill("SIGKILL");
+      killTree();
       reject(new Error(`Render timed out after ${Math.round(config.renderTimeoutMs / 1000)}s`));
     }, config.renderTimeoutMs);
 
@@ -92,6 +114,7 @@ export function renderWithRemotionCli(opts: RenderOptions): Promise<void> {
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      opts.signal?.removeEventListener("abort", onAbort);
       if (code === 0) return resolve();
       reject(new Error(`remotion exited with code ${code}: ${tail.slice(-6).join(" | ")}`));
     });

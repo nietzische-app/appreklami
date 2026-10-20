@@ -49,6 +49,10 @@ export const PhoneCard: React.FC<{ video: Video; t: Dict }> = ({ video, t }) => 
               <small>{t.lockedSub}</small>
               <button type="button" className="btn btn-ghost">{t.upgrade}</button>
             </div>
+          ) : video.status === "cancelled" ? (
+            <div className="screen-msg">
+              <strong>{t.cancelledShort}</strong>
+            </div>
           ) : video.status === "failed" ? (
             <div className="screen-msg failed">
               <strong>{t.error}</strong>
@@ -82,6 +86,7 @@ export const Stepper: React.FC<{ job: Job; t: Dict }> = ({ job, t }) => {
     if (i === 0) return job.status === "queued" ? "todo" : job.status === "analyzing" ? "active" : "done";
     const v = job.videos[i - 1];
     if (v.status === "completed" || v.status === "skipped") return "done";
+    if (v.status === "cancelled" || job.status === "cancelled") return "todo";
     if (v.status === "rendering") return "active";
     return "todo";
   };

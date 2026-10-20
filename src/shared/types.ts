@@ -58,8 +58,8 @@ export interface TierConfig {
   crf: number;
 }
 
-export type JobStatus = "queued" | "analyzing" | "rendering" | "completed" | "failed";
-export type VideoStatus = "pending" | "rendering" | "completed" | "failed" | "skipped";
+export type JobStatus = "queued" | "analyzing" | "rendering" | "completed" | "failed" | "cancelled";
+export type VideoStatus = "pending" | "rendering" | "completed" | "failed" | "skipped" | "cancelled";
 
 export interface VideoState {
   tier: TierId;

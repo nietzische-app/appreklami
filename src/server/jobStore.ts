@@ -6,7 +6,7 @@ import type { JobState, Plan, SourceInput, VideoState } from "../shared/types";
 import { config } from "./config";
 
 export const JOB_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const TERMINAL = new Set(["completed", "failed"]);
+const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 export const isTerminal = (job: JobState) => TERMINAL.has(job.status);
 
 const jobFile = (jobId: string) => path.join(config.rendersDir, jobId, "job.json");
@@ -87,6 +87,7 @@ const ANALYSIS_WEIGHT = 5;
 export function computeProgress(job: JobState): number {
   if (job.status === "completed") return 100;
   if (job.status === "queued") return 0;
+  if (job.status === "cancelled") return job.progress;
   const active = job.videos.filter((v) => v.status !== "skipped");
   if (active.length === 0) return job.status === "analyzing" ? 0 : ANALYSIS_WEIGHT;
   const analysisDone = job.status === "analyzing" ? 0 : ANALYSIS_WEIGHT;

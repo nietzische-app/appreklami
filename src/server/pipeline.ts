@@ -7,7 +7,7 @@ import { TIERS, outputFileName } from "../shared/tiers";
 import type { Plan, ProjectAnalysis, SourceInput, TierConfig, VideoProps } from "../shared/types";
 import { config } from "./config";
 import { jobStore } from "./jobStore";
-import { renderWithRemotionCli } from "./renderer";
+import { CancelledError, renderWithRemotionCli } from "./renderer";
 
 const SAFE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
@@ -45,7 +45,29 @@ export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, ima
   };
 }
 
+const controllers = new Map<string, AbortController>();
+
+/** Registers the abort controller at enqueue time so queued jobs can be cancelled too. */
+export function registerJob(jobId: string): void {
+  controllers.set(jobId, new AbortController());
+}
+
+/** Returns false if the job is unknown or already finished. */
+export function cancelJob(jobId: string): boolean {
+  const controller = controllers.get(jobId);
+  if (!controller || controller.signal.aborted) return false;
+  controller.abort();
+  jobStore.update(jobId, (j) => {
+    j.status = "cancelled";
+    j.error = "Cancelled by user.";
+    for (const v of j.videos) if (v.status === "pending" || v.status === "rendering") v.status = "cancelled";
+  });
+  return true;
+}
+
 export async function runJob(jobId: string, source: SourceInput, plan: Plan): Promise<void> {
+  const signal = controllers.get(jobId)?.signal;
+  if (signal?.aborted) return void controllers.delete(jobId);
   const outDir = path.join(config.rendersDir, jobId);
   await fs.mkdir(outDir, { recursive: true });
   let cleanup: () => Promise<void> = async () => {};
@@ -54,13 +76,14 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
     jobStore.update(jobId, (j) => {
       j.status = "analyzing";
     });
-    const resolved = await resolveSource(source);
+    const resolved = await resolveSource(source, signal);
     cleanup = resolved.cleanup;
     const analysis = await analyzeProject(resolved.root, resolved.displayName);
     const { publicDir, images } = await stageAssets(jobId, analysis);
     await resolved.cleanup();
     cleanup = async () => {};
 
+    if (signal?.aborted) throw new CancelledError();
     jobStore.update(jobId, (j) => {
       j.analysis = {
         name: analysis.name,
@@ -90,12 +113,14 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
           publicDir,
           propsFile,
           outFile: path.join(outDir, fileName),
+          signal,
           onProgress: (pct) =>
             jobStore.update(jobId, (j) => {
               j.videos[index].progress = pct;
             }),
         });
       } catch (err) {
+        if (err instanceof CancelledError || signal?.aborted) throw new CancelledError();
         const message = (err as Error).message;
         jobStore.update(jobId, (j) => {
           j.videos[index].status = "failed";
@@ -110,17 +135,21 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
       });
     }
 
+    if (signal?.aborted) throw new CancelledError();
     jobStore.update(jobId, (j) => {
       const anyDone = j.videos.some((v) => v.status === "completed");
       j.status = anyDone ? "completed" : "failed";
       if (!anyDone) j.error = "All renders failed.";
     });
   } catch (err) {
-    jobStore.update(jobId, (j) => {
-      j.status = "failed";
-      j.error = (err as Error).message;
-    });
+    if (!(err instanceof CancelledError) && !signal?.aborted) {
+      jobStore.update(jobId, (j) => {
+        j.status = "failed";
+        j.error = (err as Error).message;
+      });
+    }
   } finally {
+    controllers.delete(jobId);
     await cleanup();
     await fs.rm(path.join(config.workDir, jobId), { recursive: true, force: true }).catch(() => {});
   }

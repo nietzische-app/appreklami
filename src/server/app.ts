@@ -7,7 +7,7 @@ import { DURATION_SECONDS, TIERS, resolutionOf } from "../shared/tiers";
 import type { Plan } from "../shared/types";
 import { config } from "./config";
 import { JOB_ID_RE, isTerminal, jobStore } from "./jobStore";
-import { newJobId, runJob } from "./pipeline";
+import { cancelJob, newJobId, registerJob, runJob } from "./pipeline";
 import { jobQueue } from "./queue";
 
 const sourceSchema = z.discriminatedUnion("type", [
@@ -105,6 +105,7 @@ export function createApp() {
       const plan = resolvePlan(req);
       const jobId = newJobId();
       const job = jobStore.create(jobId, source, plan);
+      registerJob(jobId);
       jobQueue.enqueue(() => runJob(jobId, source, plan));
 
       res.status(202).json({
@@ -126,6 +127,14 @@ export function createApp() {
     const job = JOB_ID_RE.test(req.params.jobId) ? await jobStore.get(req.params.jobId) : undefined;
     if (!job) return void res.status(404).json({ error: "Job not found" });
     res.json(job);
+  });
+
+  /** Stops a queued/running job (kills the Remotion process) and marks it cancelled. */
+  app.post("/api/jobs/:jobId/cancel", async (req, res) => {
+    const job = JOB_ID_RE.test(req.params.jobId) ? await jobStore.get(req.params.jobId) : undefined;
+    if (!job) return void res.status(404).json({ error: "Job not found" });
+    if (isTerminal(job) || !cancelJob(job.jobId)) return void res.status(409).json({ error: "Job already finished" });
+    res.json(await jobStore.get(job.jobId));
   });
 
   /** Server-Sent Events stream: one `progress` event per visible change, then `done`. */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createJob, getConfig, getJob, watchJob } from "./api";
+import { cancelJob, createJob, getConfig, getJob, watchJob } from "./api";
 import { PhoneCard, Stepper, StoryboardPanel } from "./components";
 import { detectLang, messages, type Lang } from "./i18n";
 import type { Job, ServerConfig } from "./types";
@@ -87,7 +87,26 @@ export const App: React.FC = () => {
     }
   };
 
-  const running = job && job.status !== "completed" && job.status !== "failed";
+  const [cancelling, setCancelling] = useState(false);
+  const cancel = async () => {
+    if (!job) return;
+    setCancelling(true);
+    try {
+      setJob(await cancelJob(job.jobId));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setCancelling(false);
+    }
+  };
+  const reset = () => {
+    stopRef.current?.();
+    setJob(null);
+    setError(null);
+    window.history.replaceState(null, "", window.location.pathname);
+  };
+
+  const running = job && !["completed", "failed", "cancelled"].includes(job.status);
 
   return (
     <>
@@ -162,7 +181,16 @@ export const App: React.FC = () => {
                   ) : null}
                   {job.error ? <p className="form-error">{job.error}</p> : null}
                 </div>
-                <div className="percent" aria-live="polite">{job.progress}<small>%</small></div>
+                <div className="status-side">
+                  <div className="percent" aria-live="polite">{job.progress}<small>%</small></div>
+                  {running ? (
+                    <button type="button" className="btn btn-danger" onClick={cancel} disabled={cancelling}>
+                      {cancelling ? t.cancelling : t.cancel}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn btn-small" onClick={reset}>{t.newJob}</button>
+                  )}
+                </div>
               </div>
               <div className="bar" role="progressbar" aria-valuenow={job.progress} aria-valuemin={0} aria-valuemax={100} aria-label={t.overall}>
                 <i style={{ width: `${job.progress}%` }} />

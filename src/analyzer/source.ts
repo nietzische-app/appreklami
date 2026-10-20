@@ -50,7 +50,7 @@ export interface ResolvedSource {
 }
 
 /** Turns a user-supplied source into a directory on disk (shallow clone for GitHub). */
-export async function resolveSource(source: SourceInput): Promise<ResolvedSource> {
+export async function resolveSource(source: SourceInput, signal?: AbortSignal): Promise<ResolvedSource> {
   if (source.type === "local") {
     const root = await resolveLocal(source.path);
     return { root, displayName: path.basename(root), cleanup: async () => {} };
@@ -62,6 +62,7 @@ export async function resolveSource(source: SourceInput): Promise<ResolvedSource
   try {
     await execFileAsync("git", ["clone", "--depth", "1", "--single-branch", "--", cloneUrl, target], {
       timeout: 120_000,
+      signal,
       env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
     });
   } catch (err) {

@@ -13,6 +13,9 @@ async function json<T>(res: Response): Promise<T> {
 export const getConfig = () => fetch(`${API_BASE}/api/config`).then((r) => json<ServerConfig>(r));
 export const getJob = (id: string) => fetch(`${API_BASE}/api/jobs/${id}`).then((r) => json<Job>(r));
 
+export const cancelJob = (id: string) =>
+  fetch(`${API_BASE}/api/jobs/${id}/cancel`, { method: "POST" }).then((r) => json<Job>(r));
+
 export const createJob = (source: { type: "github"; url: string } | { type: "local"; path: string }) =>
   fetch(`${API_BASE}/api/generate-videos`, {
     method: "POST",
@@ -24,7 +27,7 @@ export const createJob = (source: { type: "github"; url: string } | { type: "loc
 export function watchJob(jobId: string, onUpdate: (job: Job) => void): () => void {
   let stopped = false;
   let poll: ReturnType<typeof setInterval> | undefined;
-  const terminal = (j: Job) => j.status === "completed" || j.status === "failed";
+  const terminal = (j: Job) => ["completed", "failed", "cancelled"].includes(j.status);
 
   const startPolling = () => {
     if (poll || stopped) return;

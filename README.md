@@ -40,6 +40,7 @@ curl -X POST localhost:3000/api/generate-videos -H 'content-type: application/js
 | POST | `/api/generate-videos` | Body `{ "source": { "type": "github", "url": "https://github.com/o/r" } }` or `{ "type": "local", "path": "..." }`. Queues a job, returns `202` + `jobId`. |
 | GET | `/api/jobs/:jobId` | Polling: full job state, overall `progress` 0-100 and per-video progress. |
 | GET | `/api/jobs/:jobId/events` | SSE stream: `progress` events on every visible change, final `done` event. |
+| POST | `/api/jobs/:jobId/cancel` | Stops a queued or running job (kills the Remotion process). `409` if already finished. |
 | POST | `/api/analyze` | Analysis only (project type, images, 3 storyboards) without rendering. |
 | GET | `/renders/<jobId>/option-N-<tier>.mp4` | Finished videos (static, range requests supported). |
 
