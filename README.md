@@ -127,6 +127,9 @@ frame server cannot decode a file). Layers, outermost first:
 ## Web UI and public deployment
 
 `web/` is a Vite + React app (TR/EN, live progress ring per video, storyboard preview, shareable `?job=<id>` links).
+It uses a Resend-inspired dark design system built with Tailwind CSS 3: tokens (colors, shadows, keyframes) live in
+`web/tailwind.config.js`, shared primitives in `web/src/components/ui.tsx`, and the main pieces are
+`BackgroundGrid`, `HeroSection`, `OnboardingWizard`, `VideoPreviewCard`, `JobStatusCard`, `StoryboardPanel`, `LandingPage`.
 
 ```bash
 npm start                 # API on :3000
