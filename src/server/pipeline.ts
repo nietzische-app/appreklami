@@ -78,9 +78,10 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
     });
     const resolved = await resolveSource(source, signal);
     cleanup = resolved.cleanup;
-    const analysis = await analyzeProject(resolved.root, resolved.displayName);
+    const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName);
     const { publicDir, images } = await stageAssets(jobId, analysis);
     await resolved.cleanup();
+    if (analysis.tempDir) await fs.rm(analysis.tempDir, { recursive: true, force: true });
     cleanup = async () => {};
 
     if (signal?.aborted) throw new CancelledError();

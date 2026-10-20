@@ -46,6 +46,8 @@ async function resolveLocal(input: string): Promise<string> {
 export interface ResolvedSource {
   root: string;
   displayName: string;
+  /** True for GitHub clones: the repo name is a better brand name than package.json's. */
+  preferDisplayName: boolean;
   cleanup: () => Promise<void>;
 }
 
@@ -53,7 +55,7 @@ export interface ResolvedSource {
 export async function resolveSource(source: SourceInput, signal?: AbortSignal): Promise<ResolvedSource> {
   if (source.type === "local") {
     const root = await resolveLocal(source.path);
-    return { root, displayName: path.basename(root), cleanup: async () => {} };
+    return { root, displayName: path.basename(root), preferDisplayName: false, cleanup: async () => {} };
   }
 
   const { repo, cloneUrl } = parseGithubUrl(source.url);
@@ -81,6 +83,7 @@ export async function resolveSource(source: SourceInput, signal?: AbortSignal): 
   return {
     root: target,
     displayName: repo,
+    preferDisplayName: true,
     cleanup: () => fs.rm(tmp, { recursive: true, force: true }),
   };
 }

@@ -71,3 +71,38 @@ test("images: only README-referenced or screenshot-named files; sample/test phot
   assert.deepEqual(picked.sort(), ["docs/screenshot-dashboard.png", "images/ui.png"]);
   assert.deepEqual(pickImages([f("assets/random-photo.jpg")], []), []);
 });
+
+test("tagline skips GitHub alerts/blockquotes; only hero/showcase README images are used", () => {
+  const md = [
+    "<h1>Acme</h1>",
+    "",
+    "> [!WARNING]",
+    "> Use at your own risk.",
+    "",
+    "Acme is a scheduling tool for teams.",
+    "",
+    "![hero](https://github.com/acme/acme/assets/1/hero.png)",
+    "",
+    "## Setup",
+    "![terminal](https://github.com/acme/acme/assets/1/terminal.png)",
+    "",
+    "## Screenshots",
+    "![ui](docs/ui.png)",
+  ].join("\n");
+  const r = parseReadme(md);
+  assert.equal(r.title, "Acme");
+  assert.equal(r.tagline, "Acme is a scheduling tool for teams.");
+  assert.deepEqual(r.remoteImageRefs, ["https://github.com/acme/acme/assets/1/hero.png"]);
+  assert.deepEqual(r.imageRefs, ["docs/ui.png"]);
+});
+
+test("remote image fetching is restricted to GitHub-owned https hosts", async () => {
+  const { isAllowedImageUrl } = await import("../src/analyzer/remoteImages");
+  assert.ok(isAllowedImageUrl("https://raw.githubusercontent.com/a/b/main/x.png"));
+  assert.ok(isAllowedImageUrl("https://github.com/a/b/assets/1/x.png"));
+  assert.ok(!isAllowedImageUrl("http://github.com/x.png"));
+  assert.ok(!isAllowedImageUrl("https://169.254.169.254/latest/meta-data"));
+  assert.ok(!isAllowedImageUrl("https://github.com.evil.com/x.png"));
+  assert.ok(!isAllowedImageUrl("https://user:pw@github.com/x.png"));
+  assert.ok(!isAllowedImageUrl("https://localhost/x.png"));
+});

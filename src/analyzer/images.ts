@@ -4,7 +4,10 @@ import type { WalkedFile } from "./walk";
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const MIN_BYTES = 8 * 1024;
 const MAX_BYTES = 8 * 1024 * 1024;
-const GOOD_NAME = /(screenshot|screen|preview|demo|banner|hero|cover|gameplay|mockup|showcase|overview)/i;
+const GOOD_WORD = "(screenshots?|screens?|preview|demo|banner|hero|cover|gameplay|mockup|showcase|overview)";
+const GOOD_BASENAME = new RegExp(`(^|[-_. ])${GOOD_WORD}([-_. 0-9]|$)`, "i");
+const GOOD_DIR = /^(screenshots?|previews?|demo|banners?|media|gallery)$/i;
+const MAX_UNREFERENCED_DEPTH = 2;
 const BAD_NAME = /(icon|favicon|logo|avatar|badge|sprite|tile|thumb|emoji|sponsor|\.min\.|contributor|star-history)/i;
 /** Sample data, test fixtures, stock/example photos: images here describe test inputs, not the product. */
 const BAD_DIR =
@@ -25,7 +28,10 @@ export function pickImages(files: WalkedFile[], readmeRefs: string[], limit = 4)
     .filter((f) => !BAD_NAME.test(path.posix.basename(f.rel)))
     .map((f) => {
       const referenced = refOrder.has(f.rel);
-      const named = GOOD_NAME.test(f.rel);
+      const parts = f.rel.split("/");
+      const named =
+        parts.length - 1 <= MAX_UNREFERENCED_DEPTH &&
+        (GOOD_BASENAME.test(path.posix.basename(f.rel, path.extname(f.rel))) || GOOD_DIR.test(parts[parts.length - 2] ?? ""));
       let score = 0;
       if (referenced) score += 10 - Math.min(refOrder.get(f.rel)! * 0.2, 3);
       if (named) score += 4;

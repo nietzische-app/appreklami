@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import express, { type NextFunction, type Request, type Response } from "express";
 import path from "node:path";
 import { z } from "zod";
@@ -85,11 +86,15 @@ export function createApp() {
     try {
       const { source } = generateSchema.parse(req.body);
       const resolved = await resolveSource(source);
+      let tempDir: string | undefined;
       try {
-        const analysis = await analyzeProject(resolved.root, resolved.displayName);
-        res.json({ ...analysis, images: analysis.images.map((p) => path.relative(resolved.root, p)) });
+        const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName);
+        tempDir = analysis.tempDir;
+        const { tempDir: _omit, ...publicAnalysis } = analysis;
+        res.json({ ...publicAnalysis, images: analysis.images.map((p) => (p.startsWith(resolved.root) ? path.relative(resolved.root, p) : path.basename(p))) });
       } finally {
         await resolved.cleanup();
+        if (tempDir) await fs.rm(tempDir, { recursive: true, force: true });
       }
     } catch (err) {
       next(err);

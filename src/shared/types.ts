@@ -26,6 +26,8 @@ export interface ProjectAnalysis {
   readmeExcerpt: string;
   /** Absolute paths of candidate images on disk (best first). */
   images: string[];
+  /** Scratch dir holding downloaded README images; the caller deletes it. */
+  tempDir?: string;
   readmeFeatures: string[];
   storyboards: Storyboard[];
 }
