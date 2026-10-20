@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { ProjectAnalysis } from "../shared/types";
 import { classifyProject } from "./classify";
+import { readmeForPrompt, writeStoryboards } from "./copywriter";
 import { fetchMedia } from "./media-fetcher";
 import { parseReadme } from "./readme";
 import { buildStoryboards } from "./storyboards";
@@ -25,7 +26,7 @@ export async function analyzeProject(
   fallbackName = path.basename(root),
   /** GitHub repo names are brand names ("cal.com"); package.json names are often internal ("calcom-monorepo"). */
   preferFallbackName = false,
-  options: { liveCapture?: boolean } = {},
+  options: { liveCapture?: boolean; aiCopy?: boolean } = {},
 ): Promise<ProjectAnalysis> {
   const files = await walkProject(root);
 
@@ -58,6 +59,19 @@ export async function analyzeProject(
     liveCapture: options.liveCapture ?? process.env.LIVE_CAPTURE !== "0",
   });
 
+  let storyboards = buildStoryboards(classification.type, name, tagline, featureTexts);
+  let copySource: "ai" | "template" = "template";
+  if (options.aiCopy !== false) {
+    const written = await writeStoryboards(
+      { name, tagline, projectType: classification.type, readme: readmeForPrompt(readmeText), features: featureTexts, liveUrl: mediaResult.liveUrl },
+      mediaResult.notes,
+    );
+    if (written) {
+      storyboards = written;
+      copySource = "ai";
+    }
+  }
+
   return {
     name,
     tagline,
@@ -70,7 +84,8 @@ export async function analyzeProject(
     mediaNotes: mediaResult.notes,
     tempDir: mediaResult.tempDir,
     readmeFeatures: featureTexts,
-    storyboards: buildStoryboards(classification.type, name, tagline, featureTexts),
+    storyboards,
+    copySource,
   };
 }
 

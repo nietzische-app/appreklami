@@ -51,6 +51,8 @@ export interface ProjectAnalysis {
   tempDir?: string;
   readmeFeatures: string[];
   storyboards: Storyboard[];
+  /** "ai" when an LLM wrote the storyboards, "template" for the built-in copy. */
+  copySource: "ai" | "template";
 }
 
 /** Props accepted by every Remotion composition (serialised to JSON for the CLI). */
@@ -109,6 +111,7 @@ export interface JobState {
     imageCount: number;
     mediaOrigin: MediaOrigin;
     liveUrl?: string;
+    copySource: "ai" | "template";
   };
   videos: VideoState[];
   error?: string;

@@ -9,7 +9,7 @@ import { parseReadme } from "../src/analyzer/readme";
 const fixture = (name: string) => path.resolve("tests/fixtures", name);
 
 test("detects a game project, README features and screenshots", async () => {
-  const a = await analyzeProject(fixture("pixel-quest"), undefined, false, { liveCapture: false });
+  const a = await analyzeProject(fixture("pixel-quest"), undefined, false, { liveCapture: false, aiCopy: false });
   assert.equal(a.projectType, "game");
   assert.equal(a.name, "Pixel Quest");
   assert.match(a.tagline, /arcade platformer/i);
@@ -25,7 +25,7 @@ test("detects a game project, README features and screenshots", async () => {
 });
 
 test("detects a SaaS web project and falls back gracefully without images", async () => {
-  const a = await analyzeProject(fixture("taskflow-saas"), undefined, false, { liveCapture: false });
+  const a = await analyzeProject(fixture("taskflow-saas"), undefined, false, { liveCapture: false, aiCopy: false });
   assert.equal(a.projectType, "saas-web");
   assert.deepEqual(a.media, []);
   assert.equal(a.mediaOrigin, "generated-ui");

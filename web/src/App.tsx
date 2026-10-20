@@ -176,7 +176,11 @@ export const App: React.FC = () => {
                   <h2>{t[job.status]}</h2>
                   {job.analysis ? (
                     <p className="muted">
-                      <strong>{job.analysis.name}</strong> · {t.detected}: <span className="chip">{t.types[job.analysis.projectType]}</span> · {t.media}: <span className="chip">{t.mediaOrigins[job.analysis.mediaOrigin]}</span>
+                      <strong>{job.analysis.name}</strong> · {t.detected}: <span className="chip">{t.types[job.analysis.projectType]}</span> · {t.media}: <span className="chip">{t.mediaOrigins[job.analysis.mediaOrigin]}</span>{job.analysis.copySource ? (
+                        <>
+                          {" · "}{t.copy}: <span className="chip">{t.copySources[job.analysis.copySource]}</span>
+                        </>
+                      ) : null}
                     </p>
                   ) : null}
                   {job.error ? <p className="form-error">{job.error}</p> : null}

@@ -80,8 +80,8 @@ Set `LIVE_CAPTURE=0` to disable step 1. Notes on what was tried are in `analysis
 - `src/analyzer/` - source resolution (shallow `git clone` for GitHub; symlink-safe, path-restricted local folders),
   README parsing (title, tagline, feature bullets, image refs), project-type classifier (game / mobile-app / saas-web from
   manifests, dependencies and README keywords), image picker, and a storyboard builder that produces **3 marketing
-  storyboards** (hook, 3 features, outro, CTA). `buildStoryboards` is deterministic; replace it with an LLM call without
-  touching the rest.
+  storyboards** (hook, 3 features, outro, CTA). `buildStoryboards` is the deterministic fallback; `copywriter.ts` asks an LLM for
+  project-specific copy (see "AI copywriting") and falls back to the templates on any failure.
 - `src/remotion/` - the three compositions (1080x1920 @ 30fps, 18s = hook 5s + 3 features x 3s + outro 4s):
   1. `promo-basic` (Free - Basic): vertical layout, blurred backdrop, fades, soft chime/whoosh. Watermarked.
   2. `promo-dynamic` (Free - Dynamic): spring-animated kinetic text, 8-bit blips/coin/power-up sounds, scanlines. Watermarked.
@@ -132,11 +132,26 @@ Before going public you also want auth/billing in `resolvePlan`; until then keep
 | `LIVE_CAPTURE` | on | `0` disables the Playwright live-demo recording |
 | `CHROME_PATH` | Remotion's Chrome | Chrome binary used for live-demo recording |
 | `RENDER_TIMEOUT_MS` | `1200000` | Per-video render timeout |
+| `LLM_API_KEY` | unset | Enables AI copywriting (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` also work) |
+| `LLM_PROVIDER` | `openai` | `openai` (any OpenAI-compatible API) or `anthropic` |
+| `LLM_MODEL` | `gpt-4o-mini` / `claude-3-5-haiku-latest` | Model name |
+| `LLM_BASE_URL` | provider default | Custom endpoint |
+| `COPY_LANGUAGE` | `English` | Language of the generated on-screen text |
+| `AI_COPY` | on | `0` forces the template copy |
+
+## AI copywriting
+
+With `LLM_API_KEY` set, the analyzer sends the project name, type, detected features and a cleaned README excerpt to the
+model and asks for 3 storyboards with different angles (hook, 3 features, outro, CTA). The README is treated as untrusted
+data (prompt-injection guard in the system prompt), the reply is validated with zod, URLs/markdown are stripped and
+every field is length-clamped to fit the video layout. Invalid or failed replies are retried once, then the job silently
+continues with the template copy (the UI shows whether the copy was `AI-written` or `Template`). Results are cached in
+memory per input. Cost is one small request per analysis.
 
 ## Not in the MVP (next steps)
 
 Authentication/billing (see `resolvePlan` in `src/server/app.ts`), rate limiting, a durable queue (BullMQ/SQS) and object
-storage (S3) instead of the local disk, private-repo cloning, and LLM-written copy.
+storage (S3) instead of the local disk, and private-repo cloning.
 
 ## Tests
 

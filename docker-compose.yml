@@ -18,6 +18,12 @@ services:
       PRO_RENDER_SCALE: "2"
       # Tune to the limits below: ~1 Chrome tab per CPU is safe.
       RENDER_CONCURRENCY: "2"
+      # AI copywriting: put the values in a `.env` file next to this file (never commit it). Empty key = template copy.
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      COPY_LANGUAGE: ${COPY_LANGUAGE:-English}
     volumes:
       - renders:/app/public/renders
     cpus: 2.0            # at most 2 CPU cores

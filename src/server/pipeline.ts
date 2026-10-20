@@ -102,6 +102,7 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
         imageCount: media.length,
         mediaOrigin: analysis.mediaOrigin,
         liveUrl: analysis.liveUrl,
+        copySource: analysis.copySource,
       };
       j.status = "rendering";
     });
