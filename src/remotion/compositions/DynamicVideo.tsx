@@ -1,24 +1,6 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
 import type { VideoProps } from "../../shared/types";
-import { KineticScenes } from "../components/KineticScenes";
-import { Watermark } from "../components/Watermark";
+import { PromoComposition } from "../components/Composition";
 
-const Scanlines: React.FC = () => (
-  <AbsoluteFill
-    style={{
-      pointerEvents: "none",
-      backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 2px, transparent 2px, transparent 5px)",
-      mixBlendMode: "multiply",
-    }}
-  />
-);
-
-/** Option 2: kinetic text with spring animations and 8-bit/arcade sound effects. */
-export const DynamicVideo: React.FC<VideoProps> = (p) => (
-  <AbsoluteFill>
-    <KineticScenes {...p} variant="arcade" />
-    <Scanlines />
-    {p.watermark ? <Watermark /> : null}
-  </AbsoluteFill>
-);
+/** Option 2: the chosen theme with kinetic captions and the theme's accent sounds. */
+export const DynamicVideo: React.FC<VideoProps> = (p) => <PromoComposition {...p} tier="dynamic" />;

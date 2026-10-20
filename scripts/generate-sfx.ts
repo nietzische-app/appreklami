@@ -170,6 +170,13 @@ writeWav("shimmer", render(
   })),
 ), 0);
 
+// Theme sounds: short per-word accents for the SaaS and Action themes
+writeWav("soft-tick", render([{ freq: 1760, duration: 0.05, wave: "sine", volume: 0.3, attack: 0.002 }]), 0);
+writeWav("snap", render([
+  { freq: 0, duration: 0.06, wave: "noise", volume: 0.55, attack: 0.001 },
+  { freq: 160, freqEnd: 60, duration: 0.09, wave: "sine", volume: 0.6, attack: 0.001 },
+]), 0);
+
 const names = Object.keys(manifest);
 const lines = names.map((n) => `  "${n}": { file: "sfx/${n}.wav", hitFrames: ${manifest[n].hitFrames}, durationSec: ${manifest[n].durationSec.toFixed(3)} },`);
 writeFileSync(

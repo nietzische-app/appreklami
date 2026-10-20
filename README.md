@@ -175,6 +175,16 @@ Before going public you also want auth/billing in `resolvePlan`; until then keep
 | `COPY_LANGUAGE` | `English` | Language of the generated on-screen text |
 | `AI_COPY` | on | `0` forces the template copy |
 
+## Themes and the director
+
+Every video is one composition (`src/remotion/components/Composition.tsx`) skinned by `src/remotion/ThemeEngine.tsx`:
+
+- **Arcade** — pixel font, CRT scanlines, neon frame, 8-bit sounds. Default for games.
+- **SaaS** — dark grid, glass caption cards, Inter, soft sounds. Default for SaaS/web.
+- **Action** — condensed italic headlines, hard plates, camera shake, impact sounds. Default for mobile apps and a viral tone.
+
+The wizard's description and key feature are overlay copy and prompt context only. They are never drawn inside the phone; the phone plays repo/live-site recordings and screenshots, and falls back to UI built from the README (`screen` on the analysis). The owner can pin a theme in the wizard (`intent.theme`); otherwise the LLM picks one and a heuristic is the fallback. The same reply stages each scene (`textPosition`, `enterFrom`, zoom point). Without an LLM the staging is seeded from the project name, so the same repo always gets the same layout and two repos do not.
+
 ## AI copywriting
 
 With `LLM_API_KEY` set, the analyzer sends the project name, type, detected features and a cleaned README excerpt to the

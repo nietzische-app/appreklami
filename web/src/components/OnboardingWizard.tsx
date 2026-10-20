@@ -1,12 +1,13 @@
 import type { FormEvent } from "react";
 import type { Dict } from "../i18n";
-import type { Tone } from "../types";
+import type { ThemeId, Tone } from "../types";
 import { Button, cx, fieldClass } from "./ui";
 
 export interface IntentDraft {
   description: string;
   keyFeature: string;
   tone: Tone | null;
+  theme: ThemeId | null;
 }
 
 export type SourceMode = "github" | "local";
@@ -137,6 +138,27 @@ export const OnboardingWizard: React.FC<Props> = ({ t, mode, onModeChange, local
                 )}
               >
                 <input type="radio" name="targetAudience" value={o.id} checked={on} onChange={() => onDraftChange({ tone: o.id as Tone })} className="pointer-events-none absolute opacity-0" />
+                <span className={cx("absolute right-3 top-3 grid h-4 w-4 place-items-center rounded-full border text-[9px] transition-all duration-200", on ? "border-white bg-white text-black" : "border-white/20 text-transparent")}>✓</span>
+                <strong className="pr-6 text-sm font-medium text-white">{o.name}</strong>
+                <small className="text-xs text-fog">{o.desc}</small>
+              </label>
+            );
+          })}
+        </div>
+
+        <StepLabel n={4} id="theme-label">{t.wizThemeLabel}</StepLabel>
+        <div role="radiogroup" aria-labelledby="theme-label" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[{ id: "", name: t.wizThemeAuto, desc: t.wizThemeAutoDesc }, ...t.wizThemes].map((o) => {
+            const on = (draft.theme ?? "") === o.id;
+            return (
+              <label
+                key={o.id || "auto"}
+                className={cx(
+                  "relative flex cursor-pointer flex-col gap-0.5 rounded-card border p-3.5 transition-all duration-200 focus-within:ring-2 focus-within:ring-white/50",
+                  on ? "border-white/40 bg-white/[0.08] shadow-glow" : "border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.05]",
+                )}
+              >
+                <input type="radio" name="theme" value={o.id} checked={on} onChange={() => onDraftChange({ theme: o.id ? (o.id as ThemeId) : null })} className="pointer-events-none absolute opacity-0" />
                 <span className={cx("absolute right-3 top-3 grid h-4 w-4 place-items-center rounded-full border text-[9px] transition-all duration-200", on ? "border-white bg-white text-black" : "border-white/20 text-transparent")}>✓</span>
                 <strong className="pr-6 text-sm font-medium text-white">{o.name}</strong>
                 <small className="text-xs text-fog">{o.desc}</small>

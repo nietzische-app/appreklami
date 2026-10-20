@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { fetchJsonSafe } from "./http";
-import type { ProjectType, Storyboard, UserIntent } from "../shared/types";
+import type { ProjectType, Storyboard, ThemeId, UserIntent } from "../shared/types";
+import { normalizeTheme, sanitizeScenes } from "./director";
 import { TONE_GUIDE, applyIntent, mentionsKeyFeature } from "./intent";
 
 export interface CopyInput {
@@ -60,10 +61,17 @@ const storySchema = z.object({
   features: z.array(featureSchema).min(3),
   outro: z.string().min(2),
   cta: z.string().min(2),
+  scenes: z.array(z.unknown()).optional(),
 });
-const responseSchema = z.object({ storyboards: z.array(storySchema).min(3) });
+const responseSchema = z.object({ theme: z.string().optional(), storyboards: z.array(storySchema).min(3) });
 
-export function parseCopyResponse(raw: string): Storyboard[] | undefined {
+/** What the LLM director returns: the copy, the chosen theme (if valid) and per-scene staging (always valid after parsing). */
+export interface CopyResult {
+  storyboards: Storyboard[];
+  theme?: ThemeId;
+}
+
+export function parseCopyResponse(raw: string, seed = "project"): CopyResult | undefined {
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
   if (start < 0 || end <= start) return undefined;
@@ -82,9 +90,10 @@ export function parseCopyResponse(raw: string): Storyboard[] | undefined {
     features: s.features.slice(0, 3).map((f) => ({ title: clean(f.title, LIMITS.title), description: clean(f.description, LIMITS.description) })),
     outro: clean(s.outro, LIMITS.outro),
     cta: clean(s.cta, LIMITS.cta),
+    scenes: sanitizeScenes(s.scenes, `${seed}:story-${i + 1}`),
   }));
   const ok = stories.every((s) => s.hook && s.outro && s.cta && s.features.every((f) => f.title && f.description));
-  return ok ? stories : undefined;
+  return ok ? { storyboards: stories, theme: normalizeTheme(parsed.data.theme) } : undefined;
 }
 
 const SYSTEM_BASE = `You are a senior short-form video copywriter creating 18-second vertical (9:16) product promos for software projects.
@@ -96,7 +105,14 @@ Rules:
 - Hook: at most ${LIMITS.hook} characters, punchy, speaks to the viewer. Feature title: at most ${LIMITS.title} characters. Feature description: at most ${LIMITS.description} characters. Outro: at most ${LIMITS.outro}. CTA: at most ${LIMITS.cta}.
 - Exactly 3 features per storyboard; reuse of the same feature across storyboards is fine but phrase it differently.
 - No emojis, hashtags, URLs or markdown.
-Reply with JSON only: {"storyboards":[{"angle":"","hook":"","features":[{"title":"","description":""},{"title":"","description":""},{"title":"","description":""}],"outro":"","cta":""}, ... 3 items]}`;
+
+You are also the art director. Choose ONE visual theme for all three videos:
+- "arcade": retro 8-bit look (pixel font, CRT scanlines, neon glow, chiptune sounds). Best for games and playful or retro projects.
+- "saas": modern dark UI (minimal type, soft glow, glass cards, gentle sounds). Best for developer tools, APIs, B2B/SaaS and productivity.
+- "action": loud and fast (huge condensed headlines, screen shake, impact sounds). Best for consumer or mobile apps, launches, sports/media and a viral tone.
+Judge from the project facts and the owner's tone; if the owner fixed a theme, use exactly that one.
+For every storyboard also give "scenes": exactly 5 staging directions in the order [hook, feature 1, feature 2, feature 3, outro]. Each is {"textPosition":"top"|"center"|"bottom","enterFrom":"left"|"right"|"top"|"bottom","zoom":{"x":0-100,"y":0-100,"scale":1.1-1.4}}. The phone showing the real product footage sits opposite the caption; "enterFrom" is the edge the phone flies in from; zoom x/y points at the part of the screen worth looking at. Vary positions and entry edges between neighbouring scenes and between the three storyboards.
+Reply with JSON only: {"theme":"saas","storyboards":[{"angle":"","hook":"","features":[{"title":"","description":""},{"title":"","description":""},{"title":"","description":""}],"outro":"","cta":"","scenes":[{"textPosition":"bottom","enterFrom":"right","zoom":{"x":50,"y":30,"scale":1.2}}, ... 5 items]}, ... 3 items]}`;
 
 const systemPrompt = (intent?: UserIntent) => {
   const extra: string[] = [];
@@ -106,13 +122,14 @@ const systemPrompt = (intent?: UserIntent) => {
     );
   }
   if (intent?.targetAudience) extra.push(`Tone (applies to hook, features, outro and CTA): ${TONE_GUIDE[intent.targetAudience]}`);
+  if (intent?.theme) extra.push(`Theme: the owner fixed the theme to "${intent.theme}". Return exactly that theme.`);
   if (intent?.projectDescription) extra.push("The owner's one-line description is the most reliable statement of what the project does; prefer it over the README when they differ.");
   return extra.length ? `${SYSTEM_BASE}\n\nOwner's brief rules:\n${extra.map((e) => `- ${e}`).join("\n")}` : SYSTEM_BASE;
 };
 
 const briefBlock = (intent?: UserIntent) =>
   intent
-    ? `\n<owner_brief>\n${intent.projectDescription ? `description: ${intent.projectDescription}\n` : ""}${intent.keyFeature ? `key feature to emphasise: ${intent.keyFeature}\n` : ""}${intent.targetAudience ? `tone: ${intent.targetAudience}\n` : ""}</owner_brief>`
+    ? `\n<owner_brief>\n${intent.projectDescription ? `description: ${intent.projectDescription}\n` : ""}${intent.keyFeature ? `key feature to emphasise: ${intent.keyFeature}\n` : ""}${intent.targetAudience ? `tone: ${intent.targetAudience}\n` : ""}${intent.theme ? `theme: ${intent.theme}\n` : ""}</owner_brief>`
     : "";
 
 const userPrompt = (input: CopyInput, language: string) =>
@@ -129,7 +146,7 @@ async function callLlm(cfg: LlmConfig, input: CopyInput, fetchImpl: typeof fetch
         method: "POST",
         signal,
         headers: { "content-type": "application/json", "x-api-key": cfg.apiKey, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: cfg.model, max_tokens: 1200, temperature: 0.8, system: systemPrompt(input.intent), messages: [{ role: "user", content: user }] }),
+        body: JSON.stringify({ model: cfg.model, max_tokens: 2400, temperature: 0.8, system: systemPrompt(input.intent), messages: [{ role: "user", content: user }] }),
       },
       {},
     );
@@ -146,7 +163,7 @@ async function callLlm(cfg: LlmConfig, input: CopyInput, fetchImpl: typeof fetch
       body: JSON.stringify({
         model: cfg.model,
         temperature: 0.8,
-        max_tokens: 1200,
+        max_tokens: 2400,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt(input.intent) },
@@ -160,17 +177,17 @@ async function callLlm(cfg: LlmConfig, input: CopyInput, fetchImpl: typeof fetch
   return res.data.choices?.[0]?.message?.content ?? "";
 }
 
-const cache = new Map<string, Storyboard[]>();
+const cache = new Map<string, CopyResult>();
 
 /**
- * Asks an LLM for 3 project-specific storyboards. Returns undefined (caller keeps the template copy)
+ * Asks an LLM for 3 project-specific storyboards plus the art direction (theme, scene staging). Returns undefined (caller keeps the template copy)
  * when no key is configured or anything goes wrong; a failure never fails the job.
  */
 export async function writeStoryboards(
   input: CopyInput,
   notes: string[] = [],
   deps: { env?: NodeJS.ProcessEnv; fetchImpl?: typeof fetch } = {},
-): Promise<Storyboard[] | undefined> {
+): Promise<CopyResult | undefined> {
   const cfg = getLlmConfig(deps.env);
   if (!cfg) return undefined;
 
@@ -185,17 +202,19 @@ export async function writeStoryboards(
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const raw = await callLlm(cfg, prepared, deps.fetchImpl ?? fetch);
-      let stories = parseCopyResponse(raw);
-      if (stories) {
+      const parsed = parseCopyResponse(raw, prepared.name);
+      if (parsed) {
+        let { storyboards } = parsed;
         const wanted = prepared.intent?.keyFeature;
-        if (wanted && stories.some((st) => !st.features.slice(0, 2).some((f) => mentionsKeyFeature(`${f.title} ${f.description}`, wanted)))) {
+        if (wanted && storyboards.some((st) => !st.features.slice(0, 2).some((f) => mentionsKeyFeature(`${f.title} ${f.description}`, wanted)))) {
           notes.push("ai copy: key feature missing from scenes 1-2, enforced");
-          stories = applyIntent(stories, prepared.intent, prepared.name, { tone: false, hooks: false });
+          storyboards = applyIntent(storyboards, prepared.intent, prepared.name, { tone: false, hooks: false });
         }
+        const result: CopyResult = { storyboards, theme: parsed.theme };
         if (cache.size > 200) cache.delete(cache.keys().next().value!);
-        cache.set(key, stories);
-        notes.push(`ai copy: written by ${cfg.provider}/${cfg.model}`);
-        return stories;
+        cache.set(key, result);
+        notes.push(`ai copy: written by ${cfg.provider}/${cfg.model}${parsed.theme ? `, theme ${parsed.theme}` : ""}`);
+        return result;
       }
       notes.push(`ai copy: invalid response (attempt ${attempt})`);
     } catch (err) {

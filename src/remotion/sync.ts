@@ -1,5 +1,6 @@
 import { spring } from "remotion";
 import { FPS } from "../shared/video";
+import type { ThemeId, TierId } from "../shared/types";
 import type { SfxName } from "./sfx-manifest";
 import { HOOK, OUTRO, featureScene } from "./timeline";
 
@@ -58,23 +59,77 @@ export interface SfxEvent {
   volume: number;
 }
 
-export const basicSfxEvents = (featureCount: number): SfxEvent[] => [
-  { name: "soft-chime", hit: HOOK.from + rampMidpoint(0, BASIC_FADE_IN.hook), volume: 0.6 },
-  ...Array.from({ length: featureCount }, (_, i): SfxEvent => ({ name: "soft-whoosh", hit: featureScene(i).from + rampMidpoint(0, BASIC_FADE_IN.feature), volume: 0.5 })),
-  { name: "soft-chime", hit: OUTRO.from + rampMidpoint(0, BASIC_FADE_IN.outro), volume: 0.7 },
-];
+/** Sound roles a theme can fill. Tiers decide how many roles are played (Basic few and soft, PRO all of them). */
+export type SfxRole = "open" | "scene" | "cta" | "word" | "title" | "desc" | "punch" | "build" | "finale";
+type Cue = { name: SfxName; volume: number };
 
-export const arcadeSfxEvents = (words: number, featureCount: number): SfxEvent[] => [
-  ...Array.from({ length: words }, (_, i): SfxEvent => ({ name: "arcade-blip", hit: hookWordHit(i), volume: 0.35 })),
-  ...Array.from({ length: featureCount }, (_, i): SfxEvent[] => [
-    { name: "arcade-coin", hit: featureTitleHit(i), volume: 0.55 },
-    { name: "arcade-blip", hit: featureDescHit(i), volume: 0.3 },
-  ]).flat(),
-  { name: "arcade-powerup", hit: ctaHit(), volume: 0.6 },
-];
+/**
+ * The sound palette of each theme. `open` = first frame of the hook, `scene` = start of each feature scene,
+ * `word`/`title`/`desc` = kinetic text accents, `punch` = camera hit on every cut (PRO), `build` = riser into the first
+ * feature (PRO), `cta` = call to action, `finale` = tail on the CTA (PRO).
+ */
+export const THEME_SFX: Record<ThemeId, Partial<Record<SfxRole, Cue>>> = {
+  arcade: {
+    open: { name: "arcade-blip", volume: 0.4 },
+    scene: { name: "arcade-blip", volume: 0.4 },
+    word: { name: "arcade-blip", volume: 0.35 },
+    title: { name: "arcade-coin", volume: 0.55 },
+    desc: { name: "arcade-blip", volume: 0.3 },
+    cta: { name: "arcade-powerup", volume: 0.6 },
+  },
+  saas: {
+    open: { name: "soft-chime", volume: 0.6 },
+    scene: { name: "soft-whoosh", volume: 0.5 },
+    word: { name: "soft-tick", volume: 0.25 },
+    title: { name: "soft-whoosh", volume: 0.3 },
+    cta: { name: "soft-chime", volume: 0.7 },
+    punch: { name: "impact", volume: 0.3 },
+    build: { name: "riser", volume: 0.3 },
+    finale: { name: "shimmer", volume: 0.4 },
+  },
+  action: {
+    open: { name: "impact", volume: 0.7 },
+    scene: { name: "impact", volume: 0.75 },
+    word: { name: "snap", volume: 0.35 },
+    title: { name: "snap", volume: 0.5 },
+    cta: { name: "impact", volume: 0.8 },
+    punch: { name: "impact", volume: 0.8 },
+    build: { name: "riser", volume: 0.45 },
+    finale: { name: "shimmer", volume: 0.5 },
+  },
+};
 
-export const proSfxEvents = (): SfxEvent[] => [
-  ...PRO_BEATS.map((b): SfxEvent => ({ name: "impact", hit: b, volume: 0.8 })),
-  { name: "riser", hit: featureScene(0).from, volume: 0.45 },
-  { name: "shimmer", hit: ctaHit(), volume: 0.5 },
-];
+const TIER_ROLES: Record<TierId, SfxRole[]> = {
+  basic: ["open", "scene", "cta"],
+  dynamic: ["word", "title", "desc", "cta"],
+  pro: ["word", "title", "desc", "punch", "build", "cta", "finale"],
+};
+
+/**
+ * All sound events of one video. Picture and sound read the same timing table above, so they cannot drift:
+ * Basic fades each scene in (sound lands mid-ramp), Dynamic/PRO cut or spring in (sound lands on the visual's peak).
+ */
+export function sfxEvents(theme: ThemeId, tier: TierId, wordCount: number, featureCount: number): SfxEvent[] {
+  const cues = THEME_SFX[theme];
+  const roles = new Set(TIER_ROLES[tier]);
+  const out: SfxEvent[] = [];
+  const add = (role: SfxRole, hit: number) => {
+    const cue = cues[role];
+    if (roles.has(role) && cue) out.push({ name: cue.name, hit, volume: cue.volume });
+  };
+  const ramp = (kind: keyof typeof BASIC_FADE_IN) => (tier === "basic" ? rampMidpoint(0, BASIC_FADE_IN[kind]) : 0);
+
+  add("open", HOOK.from + ramp("hook"));
+  for (let i = 0; i < wordCount; i++) add("word", hookWordHit(i));
+  for (let i = 0; i < featureCount; i++) {
+    add("scene", featureScene(i).from + ramp("feature"));
+    add("title", featureTitleHit(i));
+    add("desc", featureDescHit(i));
+  }
+  for (const beat of PRO_BEATS) add("punch", beat);
+  add("build", featureScene(0).from);
+  const cta = tier === "basic" ? OUTRO.from + ramp("outro") : ctaHit();
+  add("cta", cta);
+  add("finale", cta + 12);
+  return out;
+}

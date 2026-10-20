@@ -7,7 +7,29 @@ export type Feature = {
   description: string;
 };
 
-/** One marketing storyboard = the copy for one of the three videos. */
+/** Visual + sound identity of a video (see src/remotion/ThemeEngine.tsx). */
+export type ThemeId = "arcade" | "saas" | "action";
+export const THEME_IDS: readonly ThemeId[] = ["arcade", "saas", "action"];
+/** Who chose the theme: the user in the wizard, the LLM director, or the built-in heuristic. */
+export type ThemeSource = "user" | "ai" | "auto";
+
+export type TextPosition = "top" | "center" | "bottom";
+export type EnterFrom = "left" | "right" | "top" | "bottom";
+
+/** How one scene is staged. Produced by the LLM director (or a seeded fallback), never by wizard text. */
+export interface SceneDirection {
+  /** Where the caption block sits; the phone takes the opposite side. */
+  textPosition: TextPosition;
+  /** Edge the phone flies in from. */
+  enterFrom: EnterFrom;
+  /** Camera zoom into the phone screen: focus point in percent of the screen (0..100) and end scale (1..1.5). */
+  zoom: { x: number; y: number; scale: number };
+}
+
+/** Scene order of the 18 s promo: hook, three features, outro. */
+export const SCENE_COUNT = 5;
+
+/** One marketing storyboard = the copy and staging for one of the three videos. */
 export interface Storyboard {
   id: string;
   angle: string;
@@ -15,6 +37,8 @@ export interface Storyboard {
   features: Feature[];
   outro: string;
   cta: string;
+  /** Staging for the SCENE_COUNT scenes. Always filled after analysis. */
+  scenes?: SceneDirection[];
 }
 
 export type MediaOrigin = "live-demo" | "repo-assets" | "generated-ui";
@@ -33,8 +57,18 @@ export type MediaAsset = {
   origin: "live-demo" | "repo-asset";
 };
 
+/**
+ * What the phone shows when no real media exists. Derived ONLY from the repository (README / manifest), never from
+ * the wizard: the owner's description and key feature are overlay copy, not screen content.
+ */
+export interface ScreenContent {
+  tagline: string;
+  features: Feature[];
+}
+
 export interface ProjectAnalysis {
   name: string;
+  /** Repository-derived tagline (README / manifest). */
   tagline: string;
   projectType: ProjectType;
   /** 0..1 confidence of the project type heuristic. */
@@ -50,9 +84,13 @@ export interface ProjectAnalysis {
   /** Scratch dir holding downloaded/recorded media; the caller deletes it. */
   tempDir?: string;
   readmeFeatures: string[];
+  /** Repo-only content for the phone fallback screen (see ScreenContent). */
+  screen: ScreenContent;
   storyboards: Storyboard[];
   /** "ai" when an LLM wrote the storyboards, "template" for the built-in copy. */
   copySource: "ai" | "template";
+  theme: ThemeId;
+  themeSource: ThemeSource;
 }
 
 /** Props accepted by every Remotion composition (serialised to JSON for the CLI). */
@@ -60,12 +98,18 @@ export type VideoProps = {
   projectName: string;
   projectType: ProjectType;
   tagline: string;
+  /** Overlay copy (captions on top of the video). */
   hook: string;
   features: Feature[];
   outro: string;
   cta: string;
-  /** Paths relative to the Remotion public dir (resolved with staticFile). Empty -> generated dashboard UI in the phone. */
+  /** Paths relative to the Remotion public dir (resolved with staticFile). Real repo/site media only. */
   media: MediaAsset[];
+  /** Phone fallback when `media` is empty; repo-derived only. */
+  screen: ScreenContent;
+  theme: ThemeId;
+  /** SCENE_COUNT staging directions (hook, feature 1-3, outro). */
+  scenes: SceneDirection[];
   watermark: boolean;
   accent: string;
   accent2: string;
@@ -115,6 +159,8 @@ export interface JobState {
     mediaOrigin: MediaOrigin;
     liveUrl?: string;
     copySource: "ai" | "template";
+    theme: ThemeId;
+    themeSource: ThemeSource;
   };
   videos: VideoState[];
   error?: string;
@@ -134,6 +180,8 @@ export interface UserIntent {
   /** The feature to emphasise (e.g. Integrations, Speed, Design, Pricing). Drives scenes 1-2 and which pages are filmed. */
   keyFeature?: string;
   targetAudience?: Tone;
+  /** Visual theme picked in the wizard; absent = let the AI director choose. */
+  theme?: ThemeId;
 }
 
 export type SourceInput =

@@ -1,4 +1,5 @@
-import type { Feature, MediaAsset, ProjectType, VideoProps } from "../shared/types";
+import { DEFAULT_SCENES, sanitizeSceneList } from "../shared/scenes";
+import { THEME_IDS, type Feature, type MediaAsset, type ProjectType, type ScreenContent, type ThemeId, type VideoProps } from "../shared/types";
 import { PALETTES } from "./theme";
 
 const TYPES: ProjectType[] = ["game", "mobile-app", "saas-web"];
@@ -18,6 +19,9 @@ export const defaultProps: VideoProps = {
   outro: "Try it today.",
   cta: "Get started",
   media: [],
+  screen: { tagline: "", features: [] },
+  theme: "saas",
+  scenes: DEFAULT_SCENES,
   watermark: true,
   ...PALETTES["saas-web"],
 };
@@ -46,6 +50,18 @@ function normalizeMedia(input: unknown): MediaAsset[] {
       },
     ];
   });
+}
+
+function normalizeScreen(input: unknown): ScreenContent {
+  const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const features = Array.isArray(o.features)
+    ? o.features.flatMap((f): Feature[] => {
+        const r = (f && typeof f === "object" ? f : {}) as Record<string, unknown>;
+        const title = text(r.title, "");
+        return title ? [{ title, description: text(r.description, "") }] : [];
+      })
+    : [];
+  return { tagline: typeof o.tagline === "string" ? o.tagline.trim() : "", features: features.slice(0, 3) };
 }
 
 /**
@@ -77,6 +93,9 @@ export function normalizeVideoProps(input: unknown): VideoProps {
     outro: text(p.outro, defaultProps.outro),
     cta: text(p.cta, defaultProps.cta),
     media: normalizeMedia(p.media),
+    screen: normalizeScreen(p.screen),
+    theme: THEME_IDS.includes(p.theme as ThemeId) ? (p.theme as ThemeId) : defaultProps.theme,
+    scenes: sanitizeSceneList(p.scenes),
     watermark: typeof p.watermark === "boolean" ? p.watermark : true,
     accent: color(p.accent, palette.accent),
     accent2: color(p.accent2, palette.accent2),

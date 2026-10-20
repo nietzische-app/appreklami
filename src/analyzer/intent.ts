@@ -1,4 +1,5 @@
 import type { Feature, Storyboard, Tone, UserIntent } from "../shared/types";
+import { normalizeTheme } from "./director";
 
 const MAX_DESCRIPTION = 300;
 const MAX_KEY_FEATURE = 60;
@@ -32,8 +33,10 @@ export function sanitizeIntent(raw: unknown): UserIntent | undefined {
     projectDescription: clean(r.projectDescription, MAX_DESCRIPTION),
     keyFeature: clean(r.keyFeature, MAX_KEY_FEATURE),
     targetAudience: normalizeTone(r.targetAudience),
+    theme: normalizeTheme(r.theme),
   };
-  return intent.projectDescription || intent.keyFeature || intent.targetAudience ? intent : undefined;
+  for (const k of Object.keys(intent) as (keyof UserIntent)[]) if (intent[k] === undefined) delete intent[k];
+  return Object.keys(intent).length ? intent : undefined;
 }
 
 /** Lowercase ASCII (Turkish letters folded) so "Entegrasyonlar", "entegrasyon" and "Integrations" compare sanely. */

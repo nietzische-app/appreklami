@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { ProjectAnalysis, UserIntent } from "../shared/types";
+import type { Feature, ProjectAnalysis, ScreenContent, UserIntent } from "../shared/types";
 import { classifyProject } from "./classify";
 import { readmeForPrompt, writeStoryboards } from "./copywriter";
+import { chooseTheme, directStoryboards } from "./director";
 import { applyIntent } from "./intent";
 import { fetchMedia } from "./media-fetcher";
 import { parseReadme } from "./readme";
@@ -20,6 +21,12 @@ const prettifyName = (raw: string) =>
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** "Title - description" README bullet -> feature (same split the template storyboards use). */
+function toFeature(text: string): Feature {
+  const [head, ...rest] = text.split(/\s[-:–—]\s|:\s/);
+  return { title: head.length > 42 ? `${head.slice(0, 40).trim()}…` : head, description: rest.join(" - ").slice(0, 90) };
+}
 
 /** Analyzes a project directory and produces type, assets and 3 marketing storyboards. */
 export async function analyzeProject(
@@ -46,7 +53,10 @@ export async function analyzeProject(
       ? readme.sections.map((s) => `${s.title} - ${s.summary}`)
       : [];
   const intent = options.intent;
-  const tagline = (intent?.projectDescription ?? readme.tagline ?? classification.manifestDescription ?? `${name} - built to impress.`).slice(0, 160);
+  // Repo-derived only. The owner's description is overlay copy (applyIntent / the LLM brief), never screen content.
+  const repoTagline = (readme.tagline ?? classification.manifestDescription ?? "").slice(0, 160);
+  const tagline = repoTagline || `${name} - built to impress.`;
+  const screen: ScreenContent = { tagline: repoTagline, features: featureTexts.slice(0, 3).map(toFeature) };
 
   const readmeDir = readmeFile ? path.posix.dirname(readmeFile.rel) : ".";
   const refs = readme.imageRefs.map((r) => path.posix.normalize(path.posix.join(readmeDir, r)));
@@ -64,16 +74,21 @@ export async function analyzeProject(
 
   let storyboards = applyIntent(buildStoryboards(classification.type, name, tagline, featureTexts), intent, name);
   let copySource: "ai" | "template" = "template";
+  let llmTheme;
   if (options.aiCopy !== false) {
     const written = await writeStoryboards(
       { name, tagline, projectType: classification.type, readme: readmeForPrompt(readmeText), features: featureTexts, liveUrl: mediaResult.liveUrl, intent },
       mediaResult.notes,
     );
     if (written) {
-      storyboards = written;
+      storyboards = written.storyboards;
+      llmTheme = written.theme;
       copySource = "ai";
     }
   }
+  storyboards = directStoryboards(storyboards, name);
+  const { theme, source: themeSource } = chooseTheme({ projectType: classification.type, intent, llmTheme });
+  mediaResult.notes.push(`theme: ${theme} (${themeSource})`);
 
   return {
     name,
@@ -87,8 +102,11 @@ export async function analyzeProject(
     mediaNotes: mediaResult.notes,
     tempDir: mediaResult.tempDir,
     readmeFeatures: featureTexts,
+    screen,
     storyboards,
     copySource,
+    theme,
+    themeSource,
   };
 }
 

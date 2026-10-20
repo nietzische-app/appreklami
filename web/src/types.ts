@@ -24,11 +24,13 @@ export interface Storyboard {
 }
 
 export type Tone = "developer" | "viral" | "minimal";
+export type ThemeId = "arcade" | "saas" | "action";
 
 export interface Intent {
   projectDescription?: string;
   keyFeature?: string;
   targetAudience?: Tone;
+  theme?: ThemeId;
 }
 
 export interface Job {
@@ -39,7 +41,7 @@ export interface Job {
   intent?: Intent;
   videos: Video[];
   error?: string;
-  analysis?: { name: string; tagline: string; projectType: "game" | "mobile-app" | "saas-web"; confidence: number; storyboards: Storyboard[]; imageCount: number; mediaOrigin: "live-demo" | "repo-assets" | "generated-ui"; liveUrl?: string; copySource?: "ai" | "template" };
+  analysis?: { name: string; tagline: string; projectType: "game" | "mobile-app" | "saas-web"; confidence: number; storyboards: Storyboard[]; imageCount: number; mediaOrigin: "live-demo" | "repo-assets" | "generated-ui"; liveUrl?: string; copySource?: "ai" | "template"; theme?: ThemeId; themeSource?: "user" | "ai" | "auto" };
 }
 
 export interface ServerConfig {

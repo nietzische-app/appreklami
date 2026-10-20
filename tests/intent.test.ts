@@ -135,8 +135,8 @@ test("if the model ignores the key feature it is enforced in scenes 1-2", async 
     env,
     fetchImpl: (async () => new Response(JSON.stringify({ choices: [{ message: { content: goodJson("Something else") } }] }))) as unknown as typeof fetch,
   });
-  assert.equal(out?.[0].features[0].title, "Pricing");
-  assert.equal(out?.[0].hook, "Hook 1 for you");
+  assert.equal(out?.storyboards[0].features[0].title, "Pricing");
+  assert.equal(out?.storyboards[0].hook, "Hook 1 for you");
   assert.ok(notes.some((x) => x.includes("enforced")));
 });
 

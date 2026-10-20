@@ -28,6 +28,11 @@ export const JobStatusCard: React.FC<Props> = ({ job, t, running, cancelling, on
                 <span>{t.focus}:</span> <Chip>{job.intent.keyFeature}</Chip>
               </>
             ) : null}
+            {job.analysis.theme ? (
+              <>
+                <span>{t.theme}:</span> <Chip>{t.themes[job.analysis.theme] ?? job.analysis.theme}</Chip>
+              </>
+            ) : null}
             {job.analysis.copySource ? (
               <>
                 <span>{t.copy}:</span> <Chip>{t.copySources[job.analysis.copySource]}</Chip>

@@ -21,6 +21,7 @@ const intentSchema = z
     projectDescription: z.string().max(1000).optional(),
     keyFeature: z.string().max(200).optional(),
     targetAudience: z.string().max(40).optional(),
+    theme: z.string().max(20).optional(),
   })
   .optional();
 const generateSchema = z.object({ source: sourceSchema, intent: intentSchema });

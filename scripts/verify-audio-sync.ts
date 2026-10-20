@@ -10,12 +10,13 @@ import path from "node:path";
 import { RenderInternals } from "@remotion/renderer";
 import { SFX } from "../src/remotion/sfx-manifest";
 import { defaultProps } from "../src/remotion/props";
-import { arcadeSfxEvents, basicSfxEvents, proSfxEvents, type SfxEvent } from "../src/remotion/sync";
+import { sfxEvents, type SfxEvent } from "../src/remotion/sync";
 import { FPS } from "../src/shared/video";
 
 const SR = 48000;
 const tmp = mkdtempSync(path.join(os.tmpdir(), "audio-sync-"));
 cpSync("assets/sfx", path.join(tmp, "public/sfx"), { recursive: true });
+cpSync("assets/fonts", path.join(tmp, "public/fonts"), { recursive: true });
 const ffmpeg = RenderInternals.getExecutablePath({ type: "ffmpeg", indent: false, logLevel: "error", binariesDirectory: null });
 
 const readWav = (file: string): Float32Array => {
@@ -25,10 +26,11 @@ const readWav = (file: string): Float32Array => {
   return out;
 };
 
+const words = defaultProps.hook.split(/\s+/).filter(Boolean).length;
 const plan: [string, SfxEvent[]][] = [
-  ["promo-basic", basicSfxEvents(defaultProps.features.length)],
-  ["promo-dynamic", arcadeSfxEvents(defaultProps.hook.split(/\s+/).filter(Boolean).length, defaultProps.features.length)],
-  ["promo-pro", proSfxEvents()],
+  ["promo-basic", sfxEvents(defaultProps.theme, "basic", words, defaultProps.features.length)],
+  ["promo-dynamic", sfxEvents(defaultProps.theme, "dynamic", words, defaultProps.features.length)],
+  ["promo-pro", sfxEvents(defaultProps.theme, "pro", words, defaultProps.features.length)],
 ];
 
 let worst = 0;

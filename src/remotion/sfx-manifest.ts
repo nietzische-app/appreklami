@@ -8,6 +8,8 @@ export const SFX = {
   "impact": { file: "sfx/impact.wav", hitFrames: 0, durationSec: 0.600 },
   "riser": { file: "sfx/riser.wav", hitFrames: 12, durationSec: 1.050 },
   "shimmer": { file: "sfx/shimmer.wav", hitFrames: 0, durationSec: 1.130 },
+  "soft-tick": { file: "sfx/soft-tick.wav", hitFrames: 0, durationSec: 0.100 },
+  "snap": { file: "sfx/snap.wav", hitFrames: 0, durationSec: 0.140 },
 } as const;
 
 export type SfxName = keyof typeof SFX;

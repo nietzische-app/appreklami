@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { SFX } from "../src/remotion/sfx-manifest";
-import { CTA_PEAK, WORD_PEAK, arcadeSfxEvents, basicSfxEvents, ctaHit, featureTitleHit, hookWordHit, proSfxEvents, PRO_BEATS } from "../src/remotion/sync";
+import { CTA_PEAK, WORD_PEAK, ctaHit, featureTitleHit, hookWordHit, sfxEvents, PRO_BEATS } from "../src/remotion/sync";
 import { FEATURE_DURATION, FEATURES_FROM, HOOK, OUTRO, featureScene } from "../src/remotion/timeline";
 import { DURATION_FRAMES } from "../src/shared/video";
 
-const allEvents = [...basicSfxEvents(3), ...arcadeSfxEvents(8, 3), ...proSfxEvents()];
+const allEvents = [...sfxEvents("saas", "basic", 3, 3), ...sfxEvents("arcade", "dynamic", 8, 3), ...sfxEvents("action", "pro", 4, 3)];
 
 test("every sound exists, is 48 kHz mono and its hit is on a whole frame", () => {
   for (const [name, meta] of Object.entries(SFX)) {
@@ -35,9 +35,9 @@ test("hits are tied to the visual timing", () => {
   assert.equal(featureTitleHit(1), featureScene(1).from + 2 + WORD_PEAK);
   assert.equal(ctaHit(), OUTRO.from + 24 + CTA_PEAK);
   assert.deepEqual(PRO_BEATS.slice(1, 4), [FEATURES_FROM, FEATURES_FROM + FEATURE_DURATION, FEATURES_FROM + 2 * FEATURE_DURATION]);
-  const impacts = proSfxEvents().filter((e) => e.name === "impact").map((e) => e.hit);
-  assert.deepEqual(impacts, PRO_BEATS);
-  const whooshes = basicSfxEvents(3).filter((e) => e.name === "soft-whoosh");
+  const impacts = new Set(sfxEvents("action", "pro", 1, 3).filter((e) => e.name === "impact").map((e) => e.hit));
+  for (const beat of PRO_BEATS) assert.ok(impacts.has(beat), `impact missing at frame ${beat}`);
+  const whooshes = sfxEvents("saas", "basic", 3, 3).filter((e) => e.name === "soft-whoosh");
   assert.equal(whooshes.length, 3);
   whooshes.forEach((w, i) => assert.ok(w.hit > featureScene(i).from && w.hit < featureScene(i).from + 10));
 });

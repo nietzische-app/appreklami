@@ -30,7 +30,7 @@ export const App: React.FC = () => {
   const [serverCfg, setServerCfg] = useState<ServerConfig | null>(null);
   const [mode, setMode] = useState<SourceMode>("github");
   const [value, setValue] = useState("");
-  const [draft, setDraft] = useState<IntentDraft>({ description: "", keyFeature: "", tone: null });
+  const [draft, setDraft] = useState<IntentDraft>({ description: "", keyFeature: "", tone: null, theme: null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -81,6 +81,7 @@ export const App: React.FC = () => {
             ...(draft.description.trim() ? { projectDescription: draft.description.trim() } : {}),
             ...(draft.keyFeature.trim() ? { keyFeature: draft.keyFeature.trim() } : {}),
             ...(draft.tone ? { targetAudience: draft.tone } : {}),
+            ...(draft.theme ? { theme: draft.theme } : {}),
           }
         : undefined;
       const created = await createJob(mode === "github" ? { type: "github", url: v } : { type: "local", path: v }, intent && Object.keys(intent).length ? intent : undefined);

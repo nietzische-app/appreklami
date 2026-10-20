@@ -7,11 +7,13 @@ interface Props {
   delay?: number;
   stagger?: number;
   style?: React.CSSProperties;
-  /** Pop-in with overshoot (arcade/pro) vs. gentle rise. */
+  /** Applied per word (gradient text, pixel shadow) so it survives the per-word transform. */
+  wordStyle?: React.CSSProperties;
+  /** Pop-in with overshoot vs. gentle rise. */
   bouncy?: boolean;
 }
 
-export const WordReveal: React.FC<Props> = ({ text, delay = 0, stagger = 4, style, bouncy = true }) => {
+export const WordReveal: React.FC<Props> = ({ text, delay = 0, stagger = 4, style, wordStyle, bouncy = true }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const words = text.split(/\s+/).filter(Boolean);
@@ -28,6 +30,7 @@ export const WordReveal: React.FC<Props> = ({ text, delay = 0, stagger = 4, styl
             key={`${word}-${i}`}
             style={{
               display: "inline-block",
+              ...wordStyle,
               opacity: Math.min(1, p * 2),
               transform: `translateY(${(1 - p) * 70}px) scale(${0.6 + 0.4 * p})`,
             }}

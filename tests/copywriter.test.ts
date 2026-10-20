@@ -65,9 +65,9 @@ test("OpenAI-compatible request and response", async () => {
   assert.equal(url, "http://llm.test/v1/chat/completions");
   assert.equal(auth, "Bearer test-key");
   assert.ok(body?.messages[1].content.includes("<project>"));
-  assert.equal(out?.length, 3);
-  assert.equal(out?.[0].id, "story-1");
-  assert.equal(out?.[2].features.length, 3);
+  assert.equal(out?.storyboards.length, 3);
+  assert.equal(out?.storyboards[0].id, "story-1");
+  assert.equal(out?.storyboards[2].features.length, 3);
 });
 
 test("Anthropic request and response", async () => {
@@ -83,7 +83,7 @@ test("Anthropic request and response", async () => {
   });
   assert.equal(url, "https://api.anthropic.com/v1/messages");
   assert.equal(key, "ak");
-  assert.equal(out?.length, 3);
+  assert.equal(out?.storyboards.length, 3);
 });
 
 test("invalid output retries once then falls back to undefined", async () => {
@@ -119,7 +119,7 @@ test("retry recovers after a transient failure", async () => {
     }) as unknown as typeof fetch,
   });
   assert.equal(calls, 2);
-  assert.equal(out?.length, 3);
+  assert.equal(out?.storyboards.length, 3);
 });
 
 test("identical input is served from cache", async () => {
@@ -146,11 +146,11 @@ test("output is sanitized and length-clamped", () => {
     })),
   });
   const out = parseCopyResponse(raw)!;
-  assert.ok(out[0].hook.length <= 65);
-  assert.ok(!out[0].hook.includes("http"));
-  assert.ok(!out[0].hook.includes("*"));
-  assert.ok(out[0].features[0].title.length <= 31);
-  assert.ok(!out[0].features[0].title.includes("#"));
+  assert.ok(out.storyboards[0].hook.length <= 65);
+  assert.ok(!out.storyboards[0].hook.includes("http"));
+  assert.ok(!out.storyboards[0].hook.includes("*"));
+  assert.ok(out.storyboards[0].features[0].title.length <= 31);
+  assert.ok(!out.storyboards[0].features[0].title.includes("#"));
 });
 
 test("rejects incomplete responses", () => {

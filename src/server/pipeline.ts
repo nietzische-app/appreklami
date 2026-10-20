@@ -19,6 +19,7 @@ async function stageAssets(jobId: string, analysis: ProjectAnalysis): Promise<{ 
   await fs.rm(publicDir, { recursive: true, force: true });
   await fs.mkdir(path.join(publicDir, "media"), { recursive: true });
   await fs.cp(path.join(config.assetsDir, "sfx"), path.join(publicDir, "sfx"), { recursive: true });
+  await fs.cp(path.join(config.assetsDir, "fonts"), path.join(publicDir, "fonts"), { recursive: true });
 
   const copy = async (src: string, name: string): Promise<string | undefined> => {
     const ext = path.extname(src).toLowerCase();
@@ -54,6 +55,9 @@ export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, med
     outro: story.outro,
     cta: story.cta,
     media,
+    screen: analysis.screen,
+    theme: analysis.theme,
+    scenes: story.scenes,
     watermark: tier.watermark,
     ...PALETTES[analysis.projectType],
   });
@@ -207,6 +211,8 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan, int
         mediaOrigin: analysis.mediaOrigin,
         liveUrl: analysis.liveUrl,
         copySource: analysis.copySource,
+        theme: analysis.theme,
+        themeSource: analysis.themeSource,
       };
       j.status = "rendering";
     });
