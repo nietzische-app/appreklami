@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { TIERS, outputFileName, resolutionOf } from "../shared/tiers";
-import type { JobState, Plan, SourceInput, VideoState } from "../shared/types";
+import type { JobState, Plan, SourceInput, UserIntent, VideoState } from "../shared/types";
 import { config } from "./config";
 
 export const JOB_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -15,7 +15,7 @@ const jobFile = (jobId: string) => path.join(config.rendersDir, jobId, "job.json
 class JobStore extends EventEmitter {
   private jobs = new Map<string, JobState>();
 
-  create(jobId: string, source: SourceInput, plan: Plan): JobState {
+  create(jobId: string, source: SourceInput, plan: Plan, intent?: UserIntent): JobState {
     const now = new Date().toISOString();
     const videos: VideoState[] = TIERS.map((tier) => {
       const locked = tier.premium && plan !== "pro";
@@ -30,7 +30,7 @@ class JobStore extends EventEmitter {
         ...(locked ? { error: "PRO plan required" } : {}),
       };
     });
-    const job: JobState = { jobId, status: "queued", progress: 0, plan, source, videos, createdAt: now, updatedAt: now };
+    const job: JobState = { jobId, status: "queued", progress: 0, plan, source, ...(intent ? { intent } : {}), videos, createdAt: now, updatedAt: now };
     this.jobs.set(jobId, job);
     void this.persist(job);
     return job;

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cancelJob, createJob, getConfig, getJob, watchJob } from "./api";
 import { PhoneCard, Stepper, StoryboardPanel } from "./components";
 import { detectLang, messages, type Lang } from "./i18n";
-import type { Job, ServerConfig } from "./types";
+import type { Intent, Job, ServerConfig, Tone } from "./types";
 
 interface HistoryItem {
   jobId: string;
@@ -27,6 +27,9 @@ export const App: React.FC = () => {
   const [serverCfg, setServerCfg] = useState<ServerConfig | null>(null);
   const [mode, setMode] = useState<"github" | "local">("github");
   const [value, setValue] = useState("");
+  const [description, setDescription] = useState("");
+  const [keyFeature, setKeyFeature] = useState("");
+  const [tone, setTone] = useState<Tone | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -62,6 +65,8 @@ export const App: React.FC = () => {
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }, []);
 
+  const wizardOpen = mode === "github" && GITHUB_RE.test(value.trim());
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const v = value.trim();
@@ -70,7 +75,14 @@ export const App: React.FC = () => {
     setError(null);
     setBusy(true);
     try {
-      const created = await createJob(mode === "github" ? { type: "github", url: v } : { type: "local", path: v });
+      const intent: Intent | undefined = wizardOpen
+        ? {
+            ...(description.trim() ? { projectDescription: description.trim() } : {}),
+            ...(keyFeature.trim() ? { keyFeature: keyFeature.trim() } : {}),
+            ...(tone ? { targetAudience: tone } : {}),
+          }
+        : undefined;
+      const created = await createJob(mode === "github" ? { type: "github", url: v } : { type: "local", path: v }, intent && Object.keys(intent).length ? intent : undefined);
       follow({ ...created, progress: 0 });
     } catch (err) {
       setError((err as Error).message);
@@ -154,6 +166,53 @@ export const App: React.FC = () => {
                 {busy || running ? t.working : t.generate}
               </button>
             </div>
+            {wizardOpen ? (
+              <fieldset className="wizard">
+                <legend className="wiz-title">{t.wizTitle}</legend>
+                <p className="muted wiz-hint">{t.wizHint}</p>
+
+                <label className="wiz-label" htmlFor="projectDescription">{t.wizDescLabel}</label>
+                <textarea
+                  id="projectDescription"
+                  name="projectDescription"
+                  className="wiz-input"
+                  rows={2}
+                  maxLength={300}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t.wizDescPlaceholder}
+                />
+
+                <label className="wiz-label" htmlFor="keyFeature">{t.wizKeyLabel}</label>
+                <div className="wiz-chips" role="group" aria-label={t.wizKeyLabel}>
+                  {t.wizKeyPresets.map((p) => (
+                    <button type="button" key={p} className={keyFeature === p ? "on" : ""} aria-pressed={keyFeature === p} onClick={() => setKeyFeature(keyFeature === p ? "" : p)}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  id="keyFeature"
+                  name="keyFeature"
+                  className="wiz-input"
+                  maxLength={60}
+                  value={keyFeature}
+                  onChange={(e) => setKeyFeature(e.target.value)}
+                  placeholder={t.wizKeyPlaceholder}
+                />
+
+                <span className="wiz-label" id="tone-label">{t.wizToneLabel}</span>
+                <div className="wiz-tones" role="radiogroup" aria-labelledby="tone-label">
+                  {t.wizTones.map((o) => (
+                    <label key={o.id} className={tone === o.id ? "on" : ""}>
+                      <input type="radio" name="targetAudience" value={o.id} checked={tone === o.id} onChange={() => setTone(o.id as Tone)} />
+                      <strong>{o.name}</strong>
+                      <small>{o.desc}</small>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
             {error ? <p className="form-error" role="alert">{error}</p> : null}
             {mode === "github" ? (
               <div className="examples">
@@ -176,7 +235,11 @@ export const App: React.FC = () => {
                   <h2>{t[job.status]}</h2>
                   {job.analysis ? (
                     <p className="muted">
-                      <strong>{job.analysis.name}</strong> · {t.detected}: <span className="chip">{t.types[job.analysis.projectType]}</span> · {t.media}: <span className="chip">{t.mediaOrigins[job.analysis.mediaOrigin]}</span>{job.analysis.copySource ? (
+                      <strong>{job.analysis.name}</strong> · {t.detected}: <span className="chip">{t.types[job.analysis.projectType]}</span> · {t.media}: <span className="chip">{t.mediaOrigins[job.analysis.mediaOrigin]}</span>{job.intent?.keyFeature ? (
+                        <>
+                          {" · "}{t.focus}: <span className="chip">{job.intent.keyFeature}</span>
+                        </>
+                      ) : null}{job.analysis.copySource ? (
                         <>
                           {" · "}{t.copy}: <span className="chip">{t.copySources[job.analysis.copySource]}</span>
                         </>

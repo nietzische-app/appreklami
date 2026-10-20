@@ -20,6 +20,8 @@ export interface MediaFetchInput {
   packageHomepage?: string;
   /** Disable the Playwright step (tests, or LIVE_CAPTURE=0). */
   liveCapture: boolean;
+  /** Feature the owner wants highlighted: its sub-pages (integrations, pricing...) are filmed first. */
+  keyFeature?: string;
 }
 
 export interface MediaFetchResult {
@@ -50,7 +52,7 @@ export async function fetchMedia(input: MediaFetchInput): Promise<MediaFetchResu
   notes.push(liveUrl ? `live url candidate: ${liveUrl}` : "no live url found in README/package.json");
 
   if (liveUrl && input.liveCapture) {
-    const live = await captureLiveSite(liveUrl, path.join(tempDir, "live"), notes);
+    const live = await captureLiveSite(liveUrl, path.join(tempDir, "live"), notes, undefined, { keyFeature: input.keyFeature });
     // Scrolling recordings first (motion), then product shots found on the site, both before anything from the repo.
     for (const asset of [...live.recordings, ...live.showcase]) {
       if (media.length >= MAX_MEDIA) break;

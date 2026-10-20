@@ -22,11 +22,20 @@ export interface Storyboard {
   cta: string;
 }
 
+export type Tone = "developer" | "viral" | "minimal";
+
+export interface Intent {
+  projectDescription?: string;
+  keyFeature?: string;
+  targetAudience?: Tone;
+}
+
 export interface Job {
   jobId: string;
   status: JobStatus;
   progress: number;
   plan: "free" | "pro";
+  intent?: Intent;
   videos: Video[];
   error?: string;
   analysis?: { name: string; tagline: string; projectType: "game" | "mobile-app" | "saas-web"; confidence: number; storyboards: Storyboard[]; imageCount: number; mediaOrigin: "live-demo" | "repo-assets" | "generated-ui"; liveUrl?: string; copySource?: "ai" | "template" };

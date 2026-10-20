@@ -1,4 +1,4 @@
-import type { Job, ServerConfig } from "./types";
+import type { Intent, Job, ServerConfig } from "./types";
 
 /** Empty in dev (Vite proxy) / when the UI is served by the API; set VITE_API_URL on Netlify. */
 export const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
@@ -16,11 +16,11 @@ export const getJob = (id: string) => fetch(`${API_BASE}/api/jobs/${id}`).then((
 export const cancelJob = (id: string) =>
   fetch(`${API_BASE}/api/jobs/${id}/cancel`, { method: "POST" }).then((r) => json<Job>(r));
 
-export const createJob = (source: { type: "github"; url: string } | { type: "local"; path: string }) =>
+export const createJob = (source: { type: "github"; url: string } | { type: "local"; path: string }, intent?: Intent) =>
   fetch(`${API_BASE}/api/generate-videos`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ source }),
+    body: JSON.stringify({ source, ...(intent ? { intent } : {}) }),
   }).then((r) => json<Job & { eventsUrl: string }>(r));
 
 /** SSE with an automatic polling fallback (proxies that buffer event streams, flaky mobile networks). */

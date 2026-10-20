@@ -15,7 +15,7 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; }
-button, input { font: inherit; color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 h1, h2, h3, p { margin: 0; }
@@ -51,6 +51,29 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 20px 60px; }
 .examples { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; color: var(--muted); font-size: 0.85rem; }
 .examples button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; color: var(--muted); font-size: 0.8rem; }
 .examples button:hover { color: var(--text); border-color: var(--accent); }
+
+.wizard { margin: 0; text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: rgba(12, 14, 28, 0.7); animation: wiz-in 0.28s ease-out; min-width: 0; }
+@keyframes wiz-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.wiz-title { padding: 0 6px; font-weight: 800; letter-spacing: -0.01em; color: var(--accent); }
+.wiz-hint { font-size: 0.85rem; margin-top: -4px; }
+.wiz-label { margin-top: 6px; font-weight: 600; font-size: 0.92rem; }
+.wiz-input { width: 100%; resize: vertical; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); outline: none; font-size: 0.95rem; }
+.wiz-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.12); }
+.wiz-input::placeholder { color: #6b7194; }
+.wiz-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.wiz-chips button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 14px; color: var(--muted); font-size: 0.85rem; font-weight: 600; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+.wiz-chips button:hover { color: var(--text); border-color: var(--accent); }
+.wiz-chips button.on { background: rgba(94, 234, 212, 0.16); border-color: var(--accent); color: var(--accent); }
+.wiz-tones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wiz-tones label { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.wiz-tones label:hover { border-color: rgba(94, 234, 212, 0.5); }
+.wiz-tones label.on { border-color: var(--accent); background: rgba(94, 234, 212, 0.1); }
+.wiz-tones label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wiz-tones input { position: absolute; opacity: 0; pointer-events: none; }
+.wiz-tones strong { font-size: 0.9rem; }
+.wiz-tones small { color: var(--muted); font-size: 0.78rem; }
+@media (max-width: 620px) { .wiz-tones { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .wizard { animation: none; } }
 
 .btn { border: 0; border-radius: 12px; padding: 12px 22px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.15s, filter 0.15s, opacity 0.15s; }
 .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }

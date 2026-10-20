@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import path from "node:path";
 import { z } from "zod";
 import { analyzeProject, resolveSource, SourceError } from "../analyzer";
+import { sanitizeIntent } from "../analyzer/intent";
 import { allowedLocalRoots, validateSource } from "../analyzer/source";
 import { DURATION_SECONDS, TIERS, resolutionOf } from "../shared/tiers";
 import type { Plan } from "../shared/types";
@@ -15,7 +16,14 @@ const sourceSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("github"), url: z.string().min(1).max(300) }),
   z.object({ type: z.literal("local"), path: z.string().min(1).max(500) }),
 ]);
-const generateSchema = z.object({ source: sourceSchema });
+const intentSchema = z
+  .object({
+    projectDescription: z.string().max(1000).optional(),
+    keyFeature: z.string().max(200).optional(),
+    targetAudience: z.string().max(40).optional(),
+  })
+  .optional();
+const generateSchema = z.object({ source: sourceSchema, intent: intentSchema });
 
 /** Auth/billing seam: replace with the real plan lookup for the authenticated user. */
 function resolvePlan(req: Request): Plan {
@@ -84,11 +92,12 @@ export function createApp() {
   /** Analysis only (no rendering): handy for previewing the generated storyboards. */
   app.post("/api/analyze", async (req, res, next) => {
     try {
-      const { source } = generateSchema.parse(req.body);
+      const { source, intent: rawIntent } = generateSchema.parse(req.body);
+      const intent = sanitizeIntent(rawIntent);
       const resolved = await resolveSource(source);
       let tempDir: string | undefined;
       try {
-        const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName);
+        const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName, { intent });
         tempDir = analysis.tempDir;
         const { tempDir: _omit, ...publicAnalysis } = analysis;
         res.json({
@@ -106,15 +115,16 @@ export function createApp() {
 
   app.post("/api/generate-videos", async (req, res, next) => {
     try {
-      const { source } = generateSchema.parse(req.body);
+      const { source, intent: rawIntent } = generateSchema.parse(req.body);
+      const intent = sanitizeIntent(rawIntent);
       await validateSource(source);
 
       enforceLimits(req.ip ?? "unknown");
       const plan = resolvePlan(req);
       const jobId = newJobId();
-      const job = jobStore.create(jobId, source, plan);
+      const job = jobStore.create(jobId, source, plan, intent);
       registerJob(jobId);
-      jobQueue.enqueue(() => runJob(jobId, source, plan));
+      jobQueue.enqueue(() => runJob(jobId, source, plan, intent));
 
       res.status(202).json({
         jobId,

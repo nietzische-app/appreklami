@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { ProjectAnalysis } from "../shared/types";
+import type { ProjectAnalysis, UserIntent } from "../shared/types";
 import { classifyProject } from "./classify";
 import { readmeForPrompt, writeStoryboards } from "./copywriter";
+import { applyIntent } from "./intent";
 import { fetchMedia } from "./media-fetcher";
 import { parseReadme } from "./readme";
 import { buildStoryboards } from "./storyboards";
@@ -26,7 +27,7 @@ export async function analyzeProject(
   fallbackName = path.basename(root),
   /** GitHub repo names are brand names ("cal.com"); package.json names are often internal ("calcom-monorepo"). */
   preferFallbackName = false,
-  options: { liveCapture?: boolean; aiCopy?: boolean } = {},
+  options: { liveCapture?: boolean; aiCopy?: boolean; intent?: UserIntent } = {},
 ): Promise<ProjectAnalysis> {
   const files = await walkProject(root);
 
@@ -44,7 +45,8 @@ export async function analyzeProject(
     : readme.sections.length >= 3
       ? readme.sections.map((s) => `${s.title} - ${s.summary}`)
       : [];
-  const tagline = (readme.tagline ?? classification.manifestDescription ?? `${name} - built to impress.`).slice(0, 160);
+  const intent = options.intent;
+  const tagline = (intent?.projectDescription ?? readme.tagline ?? classification.manifestDescription ?? `${name} - built to impress.`).slice(0, 160);
 
   const readmeDir = readmeFile ? path.posix.dirname(readmeFile.rel) : ".";
   const refs = readme.imageRefs.map((r) => path.posix.normalize(path.posix.join(readmeDir, r)));
@@ -57,13 +59,14 @@ export async function analyzeProject(
     projectName: name,
     packageHomepage: classification.manifestHomepage,
     liveCapture: options.liveCapture ?? process.env.LIVE_CAPTURE !== "0",
+    keyFeature: intent?.keyFeature,
   });
 
-  let storyboards = buildStoryboards(classification.type, name, tagline, featureTexts);
+  let storyboards = applyIntent(buildStoryboards(classification.type, name, tagline, featureTexts), intent, name);
   let copySource: "ai" | "template" = "template";
   if (options.aiCopy !== false) {
     const written = await writeStoryboards(
-      { name, tagline, projectType: classification.type, readme: readmeForPrompt(readmeText), features: featureTexts, liveUrl: mediaResult.liveUrl },
+      { name, tagline, projectType: classification.type, readme: readmeForPrompt(readmeText), features: featureTexts, liveUrl: mediaResult.liveUrl, intent },
       mediaResult.notes,
     );
     if (written) {

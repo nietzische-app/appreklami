@@ -107,6 +107,7 @@ export interface JobState {
   progress: number;
   plan: Plan;
   source: SourceInput;
+  intent?: UserIntent;
   analysis?: Pick<ProjectAnalysis, "name" | "tagline" | "projectType" | "confidence" | "storyboards"> & {
     imageCount: number;
     mediaOrigin: MediaOrigin;
@@ -120,6 +121,18 @@ export interface JobState {
 }
 
 export type Plan = "free" | "pro";
+
+/** Video tone chosen in the wizard ("Developer/B2B", "Viral/Trendy", "Minimal/Sade"). */
+export type Tone = "developer" | "viral" | "minimal";
+
+/** What the owner tells us about the project; all fields optional. */
+export interface UserIntent {
+  /** One sentence: what does the project do? */
+  projectDescription?: string;
+  /** The feature to emphasise (e.g. Integrations, Speed, Design, Pricing). Drives scenes 1-2 and which pages are filmed. */
+  keyFeature?: string;
+  targetAudience?: Tone;
+}
 
 export type SourceInput =
   | { type: "github"; url: string }

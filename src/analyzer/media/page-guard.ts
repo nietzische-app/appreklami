@@ -3,6 +3,8 @@
  * are rejected by URL and by what is actually rendered; public showcase pages and product imagery are preferred.
  */
 
+import { keyFeaturePaths } from "../intent";
+
 const AUTH_PATH = /(^|\/)(log-?in|sign-?in|sign-?up|sign-?on|register|auth|oauth2?|sso|authenticate|account\/(login|signin))(\/|$)/i;
 const AUTH_HOST = /^(login|signin|auth|accounts|sso|id|identity)\./i;
 const APP_SUBDOMAIN = /^(app|dashboard|console|my|portal|account|admin|cloud|studio)$/i;
@@ -23,7 +25,7 @@ export function isAuthUrl(raw: string): boolean {
  * Pages to try for a product URL. App subdomains (app.example.com) are normally the login wall, so the marketing apex
  * domain is tried first. The original URL always stays in the list; auth URLs never do.
  */
-export function candidateUrls(liveUrl: string, max = 7): string[] {
+export function candidateUrls(liveUrl: string, max = 7, keyFeature?: string): string[] {
   const out: string[] = [];
   const add = (u: string) => {
     if (!isAuthUrl(u) && !out.includes(u)) out.push(u);
@@ -40,6 +42,9 @@ export function candidateUrls(liveUrl: string, max = 7): string[] {
   origins.push(base.origin);
 
   if (base.pathname.length > 1) add(base.toString());
+  // The owner's key feature gets its own page first (e.g. "Integrations" -> /integrations), then the generic showcase pages.
+  const featurePaths = keyFeaturePaths(keyFeature);
+  for (const origin of origins) for (const p of featurePaths) add(`${origin}${p}`);
   for (const origin of origins) for (const p of SHOWCASE_PATHS) add(`${origin}${p}`);
   return out.slice(0, max);
 }

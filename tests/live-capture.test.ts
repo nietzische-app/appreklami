@@ -155,3 +155,31 @@ test("captureLiveSite returns nothing when every page needs a login", async (t) 
   assert.deepEqual(result, { recordings: [], showcase: [] });
   assert.ok(notes.some((n) => n.includes("every candidate page needs a login or is empty")), notes.join("\n"));
 });
+
+test("captureLiveSite films the key feature's page first", async (t) => {
+  const executablePath = await findChrome();
+  if (!executablePath) return t.skip("no Chrome available");
+  const body = (title: string) => `<!doctype html><html><body style="margin:0"><h1>${title}</h1>${lorem}</body></html>`;
+  const hits: string[] = [];
+  const server = http.createServer((req, res) => {
+    const url = (req.url ?? "/").split("?")[0];
+    hits.push(url);
+    const html = url === "/" ? body("Home") : url === "/integrations" ? body("Integrations") : undefined;
+    res.writeHead(html ? 200 : 404, { "content-type": "text/html" });
+    res.end(html ?? "nope");
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  t.after(() => server.close());
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "live-capture-"));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+
+  const notes: string[] = [];
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const result = await captureLiveSite(`${base}/`, dir, notes, { isSafeUrl: async () => true, isPublic: async () => true, executablePath }, { keyFeature: "Entegrasyonlar" });
+
+  const okNotes = notes.filter((n) => n.startsWith("public page ok"));
+  assert.ok(okNotes[0].endsWith("/integrations"), notes.join("\n"));
+  assert.ok(notes.some((n) => n.includes('key feature "Entegrasyonlar"')));
+  assert.equal(result.recordings.length, 2);
+  assert.ok(hits.indexOf("/integrations") < hits.indexOf("/"), "integrations is probed before the home page");
+});

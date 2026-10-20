@@ -37,11 +37,11 @@ curl -X POST localhost:3000/api/generate-videos -H 'content-type: application/js
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/api/generate-videos` | Body `{ "source": { "type": "github", "url": "https://github.com/o/r" } }` or `{ "type": "local", "path": "..." }`. Queues a job, returns `202` + `jobId`. |
+| POST | `/api/generate-videos` | Body `{ "source": { "type": "github", "url": "https://github.com/o/r" } }` or `{ "type": "local", "path": "..." }`. Optional `"intent"` (see below). Queues a job, returns `202` + `jobId`. |
 | GET | `/api/jobs/:jobId` | Polling: full job state, overall `progress` 0-100 and per-video progress. |
 | GET | `/api/jobs/:jobId/events` | SSE stream: `progress` events on every visible change, final `done` event. |
 | POST | `/api/jobs/:jobId/cancel` | Stops a queued or running job (kills the Remotion process). `409` if already finished. |
-| POST | `/api/analyze` | Analysis only (project type, images, 3 storyboards) without rendering. |
+| POST | `/api/analyze` | Analysis only (project type, images, 3 storyboards) without rendering. Accepts the same `intent`. |
 | GET | `/renders/<jobId>/option-N-<tier>.mp4` | Finished videos (static, range requests supported). |
 
 Job state (also persisted to `public/renders/<jobId>/job.json`):
@@ -179,6 +179,22 @@ data (prompt-injection guard in the system prompt), the reply is validated with 
 every field is length-clamped to fit the video layout. Invalid or failed replies are retried once, then the job silently
 continues with the template copy (the UI shows whether the copy was `AI-written` or `Template`). Results are cached in
 memory per input. Cost is one small request per analysis.
+
+## User intent wizard
+
+After a GitHub URL is entered, the web UI shows an optional wizard. Its answers travel as `intent` in the request body:
+
+```json
+{ "source": { "type": "github", "url": "https://github.com/o/r" },
+  "intent": { "projectDescription": "One-line pitch", "keyFeature": "Integrations", "targetAudience": "developer" } }
+```
+
+- `projectDescription` replaces the README-derived tagline (Basic hook) and is given to the LLM as an `<owner_brief>` (untrusted data).
+- `keyFeature` must lead scenes 1 and 2 (hooks and text overlays). The LLM is told so; if its reply ignores it, the key feature is enforced afterwards. Without an LLM the template copy uses it as well.
+- `targetAudience` is the tone: `developer` (Developer/B2B), `viral` (Viral/Trendy), `minimal` (Minimal/Sade); it steers the prompt and the CTA.
+- The live-site crawler visits matching sub-pages first (`Integrations` -> `/integrations`, `/apps`, `/marketplace`...; also speed, design, pricing, security, API, analytics, templates, AI, mobile, teams, docs, or `/<slug>`). If none exists it falls back to the normal showcase pages.
+
+All fields are optional, sanitized (control characters, `<>` and backticks stripped, length-limited) and part of the copy cache key.
 
 ## Not in the MVP (next steps)
 

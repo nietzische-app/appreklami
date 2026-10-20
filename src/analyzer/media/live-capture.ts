@@ -199,7 +199,13 @@ async function recordPage(browser: Browser, url: string, outDir: string, name: s
  * from the good pages and records a smooth scroll of up to two of them. Every request goes through the SSRF guard.
  * Returns empty lists when nothing usable was found (callers then fall back to repo assets / generated UI).
  */
-export async function captureLiveSite(url: string, outDir: string, notes: string[], deps: CaptureDeps = defaultDeps): Promise<LiveCaptureResult> {
+export async function captureLiveSite(
+  url: string,
+  outDir: string,
+  notes: string[],
+  deps: CaptureDeps = defaultDeps,
+  options: { keyFeature?: string } = {},
+): Promise<LiveCaptureResult> {
   const empty: LiveCaptureResult = { recordings: [], showcase: [] };
   if (!(await deps.isSafeUrl(url))) {
     notes.push(`live demo skipped: ${url} is not a safe public URL`);
@@ -221,7 +227,9 @@ export async function captureLiveSite(url: string, outDir: string, notes: string
       const images = new Map<string, PageImage>();
       const videos: { src: string }[] = [];
 
-      for (const candidate of candidateUrls(url, MAX_PROBED_PAGES)) {
+      const candidates = candidateUrls(url, options.keyFeature ? MAX_PROBED_PAGES + 6 : MAX_PROBED_PAGES, options.keyFeature);
+      if (options.keyFeature) notes.push(`key feature "${options.keyFeature}": trying ${candidates.slice(0, 4).map((c) => new URL(c).pathname).join(", ")} first`);
+      for (const candidate of candidates) {
         if (approved.length >= MAX_APPROVED_PAGES) break;
         const page = await probeContext.newPage();
         try {

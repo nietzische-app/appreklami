@@ -5,7 +5,7 @@ import { analyzeProject, resolveSource } from "../analyzer";
 import { normalizeVideoProps } from "../remotion/props";
 import { PALETTES } from "../remotion/theme";
 import { TIERS, outputFileName } from "../shared/tiers";
-import type { MediaAsset, Plan, ProjectAnalysis, SourceInput, TierConfig, VideoProps } from "../shared/types";
+import type { MediaAsset, Plan, ProjectAnalysis, SourceInput, TierConfig, UserIntent, VideoProps } from "../shared/types";
 import { config } from "./config";
 import { jobStore } from "./jobStore";
 import { degradeMedia, prepareMedia } from "./media-prep";
@@ -130,7 +130,7 @@ export function cancelJob(jobId: string): boolean {
   return true;
 }
 
-export async function runJob(jobId: string, source: SourceInput, plan: Plan): Promise<void> {
+export async function runJob(jobId: string, source: SourceInput, plan: Plan, intent?: UserIntent): Promise<void> {
   const signal = controllers.get(jobId)?.signal;
   if (signal?.aborted) return void controllers.delete(jobId);
   const outDir = path.join(config.rendersDir, jobId);
@@ -143,7 +143,7 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
     });
     const resolved = await resolveSource(source, signal);
     cleanup = resolved.cleanup;
-    const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName);
+    const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName, { intent });
     const { publicDir, media } = await stageAssets(jobId, analysis);
     await resolved.cleanup();
     if (analysis.tempDir) await fs.rm(analysis.tempDir, { recursive: true, force: true });
