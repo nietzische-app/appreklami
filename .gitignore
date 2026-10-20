@@ -1,0 +1,6 @@
+node_modules/
+storage/
+public/renders/*
+!public/renders/.gitkeep
+*.log
+.env

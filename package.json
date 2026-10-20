@@ -1,0 +1,34 @@
+{
+  "name": "appreklami",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SaaS engine that turns a GitHub repo / local folder into three 9:16 promo videos rendered with Remotion.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "start": "tsx src/server/index.ts",
+    "studio": "remotion studio src/remotion/index.ts --public-dir=assets",
+    "sfx": "tsx scripts/generate-sfx.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.537",
+    "express": "^4.22.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.537",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

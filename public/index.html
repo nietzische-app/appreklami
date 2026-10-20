@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AppReklami - promo video generator</title>
+<style>
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #0b0d1a; color: #e8eaf6; display: flex; justify-content: center; }
+  main { width: min(920px, 94vw); padding: 40px 0 80px; }
+  h1 { margin: 0 0 6px; } p.sub { margin: 0 0 28px; color: #9aa0c3; }
+  form { display: flex; gap: 10px; flex-wrap: wrap; }
+  select, input, button { font: inherit; padding: 12px 14px; border-radius: 10px; border: 1px solid #2c3158; background: #151933; color: inherit; }
+  input { flex: 1; min-width: 260px; } button { background: #5eead4; color: #0b0d1a; font-weight: 700; cursor: pointer; border: 0; }
+  button:disabled { opacity: .5; cursor: progress; }
+  .bar { height: 14px; border-radius: 99px; background: #1b2042; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #6366f1, #5eead4); transition: width .25s; }
+  #overall { margin: 32px 0 8px; } #status { color: #9aa0c3; margin-bottom: 20px; min-height: 1.4em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .card { background: #151933; border: 1px solid #2c3158; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .card h3 { margin: 0; font-size: 1rem; } .card small { color: #9aa0c3; }
+  video { width: 100%; border-radius: 10px; background: #000; aspect-ratio: 9/16; }
+  .err { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AppReklami</h1>
+  <p class="sub">Paste a GitHub repo (or a local folder path) and get three 9:16 promo videos.</p>
+  <form id="form">
+    <select id="type"><option value="github">GitHub URL</option><option value="local">Local folder</option></select>
+    <input id="value" placeholder="https://github.com/owner/repo" required />
+    <button id="go">Generate</button>
+  </form>
+  <div id="overall" class="bar"><i></i></div>
+  <div id="status"></div>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+$("type").onchange = () => { $("value").placeholder = $("type").value === "github" ? "https://github.com/owner/repo" : "/absolute/path/inside/ALLOWED_LOCAL_ROOTS"; };
+
+function render(job) {
+  $("overall").firstElementChild.style.width = job.progress + "%";
+  const a = job.analysis;
+  $("status").textContent = `${job.status.toUpperCase()} - ${job.progress}%` + (a ? ` - ${a.name} (${a.projectType})` : "") + (job.error ? ` - ${job.error}` : "");
+  $("grid").innerHTML = job.videos.map((v) => `
+    <div class="card">
+      <h3>Option ${v.option}: ${v.label}</h3>
+      <small>${v.resolution}${v.watermark ? " - watermark" : " - no watermark"}</small>
+      <div class="bar"><i style="width:${v.progress}%"></i></div>
+      <small>${v.status} ${v.progress}%</small>
+      ${v.url ? `<video src="${v.url}" controls playsinline></video><a href="${v.url}" download>Download</a>` : ""}
+      ${v.error ? `<small class="err">${v.error}</small>` : ""}
+    </div>`).join("");
+}
+
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("go").disabled = true;
+  const type = $("type").value, value = $("value").value.trim();
+  const source = type === "github" ? { type, url: value } : { type, path: value };
+  const res = await fetch("/api/generate-videos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ source }) });
+  const body = await res.json();
+  if (!res.ok) { $("status").textContent = body.error || "Request failed"; $("go").disabled = false; return; }
+  render({ ...body, progress: 0, videos: body.videos });
+  const es = new EventSource(body.eventsUrl);
+  es.addEventListener("progress", (ev) => render(JSON.parse(ev.data)));
+  es.addEventListener("done", (ev) => { render(JSON.parse(ev.data)); es.close(); $("go").disabled = false; });
+  es.onerror = () => { /* EventSource auto-reconnects; polling endpoint is the fallback */ };
+};
+</script>
+</body>
+</html>
