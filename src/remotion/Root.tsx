@@ -19,7 +19,7 @@ export const defaultProps: VideoProps = {
   ],
   outro: "Work smarter.",
   cta: "Start free",
-  images: [],
+  media: [],
   watermark: true,
   ...PALETTES["saas-web"],
 };

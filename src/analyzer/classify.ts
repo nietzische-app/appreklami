@@ -10,6 +10,7 @@ export interface Classification {
   /** Name from package.json / pubspec, when available. */
   manifestName?: string;
   manifestDescription?: string;
+  manifestHomepage?: string;
 }
 
 const KEYWORDS: Record<ProjectType, RegExp[]> = {
@@ -71,9 +72,11 @@ export async function classifyProject(
   const pkg = await readJson(path.join(root, "package.json"));
   let manifestName: string | undefined;
   let manifestDescription: string | undefined;
+  let manifestHomepage: string | undefined;
   if (pkg) {
     manifestName = typeof pkg.name === "string" ? pkg.name : undefined;
     manifestDescription = typeof pkg.description === "string" ? pkg.description : undefined;
+    manifestHomepage = typeof pkg.homepage === "string" ? pkg.homepage : undefined;
     const deps: Record<string, string> = { ...pkg.dependencies, ...pkg.devDependencies };
     const has = (...names: string[]) => names.some((n) => n in deps);
     if (has("react-native", "expo", "@capacitor/core", "@ionic/react", "nativescript")) bump("mobile-app", 8, "RN/Expo/Capacitor dependency");
@@ -103,6 +106,6 @@ export async function classifyProject(
   const [bestType, bestScore] = ranked[0];
   const total = ranked.reduce((sum, [, s]) => sum + s, 0);
   // With no signals, a generic code repo is most commonly a web product.
-  if (bestScore === 0) return { type: "saas-web", confidence: 0.2, signals: ["no signals, default"], manifestName, manifestDescription };
-  return { type: bestType, confidence: Math.round((bestScore / total) * 100) / 100, signals, manifestName, manifestDescription };
+  if (bestScore === 0) return { type: "saas-web", confidence: 0.2, signals: ["no signals, default"], manifestName, manifestDescription, manifestHomepage };
+  return { type: bestType, confidence: Math.round((bestScore / total) * 100) / 100, signals, manifestName, manifestDescription, manifestHomepage };
 }

@@ -17,6 +17,22 @@ export interface Storyboard {
   cta: string;
 }
 
+export type MediaOrigin = "live-demo" | "repo-assets" | "generated-ui";
+
+/** A screenshot or screen recording shown inside the phone mockup. `src` is absolute on disk during analysis and public-dir-relative inside VideoProps. */
+export type MediaAsset = {
+  kind: "video" | "image";
+  src: string;
+  width: number;
+  height: number;
+  /** Still frame of a video (also used for the blurred background). */
+  poster?: string;
+  /** Videos: seconds to skip (page load) and usable length. */
+  startOffsetSec?: number;
+  durationSec?: number;
+  origin: "live-demo" | "repo-asset";
+};
+
 export interface ProjectAnalysis {
   name: string;
   tagline: string;
@@ -24,9 +40,14 @@ export interface ProjectAnalysis {
   /** 0..1 confidence of the project type heuristic. */
   confidence: number;
   readmeExcerpt: string;
-  /** Absolute paths of candidate images on disk (best first). */
-  images: string[];
-  /** Scratch dir holding downloaded README images; the caller deletes it. */
+  /** Screen recordings / screenshots for the phone mockup (absolute paths, best first). Empty -> generated UI. */
+  media: MediaAsset[];
+  mediaOrigin: MediaOrigin;
+  /** Live product URL that was found in the repo (README / package.json), if any. */
+  liveUrl?: string;
+  /** Human-readable log of how media was found; shown for debugging. */
+  mediaNotes: string[];
+  /** Scratch dir holding downloaded/recorded media; the caller deletes it. */
   tempDir?: string;
   readmeFeatures: string[];
   storyboards: Storyboard[];
@@ -41,8 +62,8 @@ export type VideoProps = {
   features: Feature[];
   outro: string;
   cta: string;
-  /** Paths relative to the Remotion public dir (resolved with staticFile). */
-  images: string[];
+  /** Paths relative to the Remotion public dir (resolved with staticFile). Empty -> generated dashboard UI in the phone. */
+  media: MediaAsset[];
   watermark: boolean;
   accent: string;
   accent2: string;
@@ -86,6 +107,8 @@ export interface JobState {
   source: SourceInput;
   analysis?: Pick<ProjectAnalysis, "name" | "tagline" | "projectType" | "confidence" | "storyboards"> & {
     imageCount: number;
+    mediaOrigin: MediaOrigin;
+    liveUrl?: string;
   };
   videos: VideoState[];
   error?: string;

@@ -60,6 +60,21 @@ Job state (also persisted to `public/renders/<jobId>/job.json`):
 
 Overall progress: 0-5% analysis, then the remaining 95% is split evenly over the videos that will be rendered.
 
+## Phone content: 3-step media pipeline
+
+`src/analyzer/media-fetcher.ts` decides what is shown inside the phone mockup (never an empty frame):
+
+1. **Live demo** - `findLiveUrl` (package.json `homepage`, README links ranked by label/position, badges/code hosts/deploy buttons ignored)
+   -> Playwright (reusing Remotion's Chrome) opens it in a 540x960 mobile viewport and records a 10s smooth scroll as webm
+   (`media/live/live-demo.webm` + poster). Every request is checked by an SSRF guard (public IPs only, http/https, no credentials).
+2. **Repo assets** - README hero/showcase images (local and GitHub-hosted), OpenGraph cards (`og-image.png`), screenshot-named files,
+   and large images in asset folders (`apps/*/public`, `packages/*/assets`, `docs/images`, `.github/assets`). Image headers are read to
+   reject icons/banners/odd aspect ratios. PNG/JPG/WebP/GIF (GIF renders as a still).
+3. **Generated UI** - `DynamicGeneratedUI` (Remotion) builds a dashboard (SaaS), feed (mobile) or HUD (game) from the README features
+   and slowly scrolls it. `PhoneMockup` falls back to it whenever `media` is empty.
+
+Set `LIVE_CAPTURE=0` to disable step 1. Notes on what was tried are in `analysis.mediaNotes`.
+
 ## Architecture
 
 - `src/analyzer/` - source resolution (shallow `git clone` for GitHub; symlink-safe, path-restricted local folders),
@@ -114,6 +129,8 @@ Before going public you also want auth/billing in `resolvePlan`; until then keep
 | `PRO_RENDER_SCALE` | `2` | Remotion `--scale` for the PRO video (1 = 1080p, 2 = 4K) |
 | `JOB_CONCURRENCY` | `1` | Jobs rendered in parallel (videos within a job are always sequential) |
 | `RENDER_CONCURRENCY` | Remotion default | Passed to `--concurrency` |
+| `LIVE_CAPTURE` | on | `0` disables the Playwright live-demo recording |
+| `CHROME_PATH` | Remotion's Chrome | Chrome binary used for live-demo recording |
 | `RENDER_TIMEOUT_MS` | `1200000` | Per-video render timeout |
 
 ## Not in the MVP (next steps)

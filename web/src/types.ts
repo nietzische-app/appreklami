@@ -29,7 +29,7 @@ export interface Job {
   plan: "free" | "pro";
   videos: Video[];
   error?: string;
-  analysis?: { name: string; tagline: string; projectType: "game" | "mobile-app" | "saas-web"; confidence: number; storyboards: Storyboard[]; imageCount: number };
+  analysis?: { name: string; tagline: string; projectType: "game" | "mobile-app" | "saas-web"; confidence: number; storyboards: Storyboard[]; imageCount: number; mediaOrigin: "live-demo" | "repo-assets" | "generated-ui"; liveUrl?: string };
 }
 
 export interface ServerConfig {

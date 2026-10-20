@@ -1,11 +1,11 @@
 import React from "react";
 import { AbsoluteFill, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import type { VideoProps } from "../../shared/types";
+import type { MediaAsset, VideoProps } from "../../shared/types";
 import { FONT_MONO, FONT_SANS, fitFont } from "../theme";
 import { HOOK, OUTRO, featureScene } from "../timeline";
 import { Background } from "./Background";
 import { Fade } from "./Fade";
-import { ImageCard } from "./ImageCard";
+import { PhoneMockup } from "./PhoneMockup";
 import { Sfx } from "./Sfx";
 import { WordReveal } from "./WordReveal";
 
@@ -28,9 +28,16 @@ const useStyle = (variant: Variant, accent: string, accent2: string) => ({
   },
 });
 
-const Card: React.FC<
-  VideoProps & { image?: string; enterFrom: "left" | "right" | "bottom"; width: number; height: number; tilt?: number }
-> = ({ image, enterFrom, width, height, tilt = 6, ...p }) => {
+const Card: React.FC<{
+  project: VideoProps;
+  asset?: MediaAsset;
+  sceneIndex: number;
+  videoOffsetFrames: number;
+  enterFrom: "left" | "right" | "bottom";
+  width: number;
+  height: number;
+  tilt?: number;
+}> = ({ project, asset, sceneIndex, videoOffsetFrames, enterFrom, width, height, tilt = 6 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: { damping: 12, stiffness: 120, mass: 0.8 } });
@@ -40,7 +47,7 @@ const Card: React.FC<
   const rotate = (1 - enter) * 18 * dir + Math.sin(frame / 25) * 1.2 + tilt * dir * -0.4;
   return (
     <div style={{ transform: `translate(${x}px, ${y}px) rotate(${rotate}deg)` }}>
-      <ImageCard image={image} name={p.projectName} accent={p.accent} accent2={p.accent2} width={width} height={height} />
+      <PhoneMockup media={asset} project={project} sceneIndex={sceneIndex} videoOffsetFrames={videoOffsetFrames} width={width} height={height} />
     </div>
   );
 };
@@ -48,7 +55,9 @@ const Card: React.FC<
 /** Shared kinetic-typography timeline used by the Dynamic (arcade) and PRO tiers. */
 export const KineticScenes: React.FC<Props> = ({ variant, ...p }) => {
   const st = useStyle(variant, p.accent, p.accent2);
-  const img = (i: number) => (p.images.length ? p.images[i % p.images.length] : undefined);
+  const mediaAt = (i: number): MediaAsset | undefined => (p.media.length ? p.media[i % p.media.length] : undefined);
+  const still = (m?: MediaAsset) => (m ? (m.kind === "video" ? m.poster : m.src) : undefined);
+  const img = (i: number) => still(mediaAt(i));
   const arcade = variant === "arcade";
   const hookWords = p.hook.split(/\s+/).filter(Boolean).slice(0, 8);
 
@@ -58,7 +67,7 @@ export const KineticScenes: React.FC<Props> = ({ variant, ...p }) => {
         <Background image={img(0)} accent={p.accent} accent2={p.accent2} animated blur={arcade ? 30 : 50} />
         <Fade inFrames={4} outFrames={6}>
           <AbsoluteFill style={{ alignItems: "center", paddingTop: 130 }}>
-            <Card {...p} image={img(0)} enterFrom="bottom" width={600} height={940} />
+            <Card project={p} asset={mediaAt(0)} sceneIndex={-1} videoOffsetFrames={HOOK.from} enterFrom="bottom" width={600} height={940} />
           </AbsoluteFill>
           <AbsoluteFill style={{ justifyContent: "flex-end", padding: "0 70px 260px" }}>
             <WordReveal text={p.hook} delay={6} stagger={5} style={{ ...st.headline, fontSize: fitFont(p.hook, 108, 62) }} />
@@ -70,10 +79,10 @@ export const KineticScenes: React.FC<Props> = ({ variant, ...p }) => {
         const s = featureScene(i);
         return (
           <Sequence key={f.title} from={s.from} durationInFrames={s.duration}>
-            <Background image={img(i + 1)} accent={p.accent} accent2={p.accent2} animated blur={arcade ? 30 : 50} />
+            <Background image={img(i)} accent={p.accent} accent2={p.accent2} animated blur={arcade ? 30 : 50} />
             <Fade inFrames={3} outFrames={5}>
               <AbsoluteFill style={{ alignItems: i % 2 ? "flex-start" : "flex-end", paddingTop: 110, paddingLeft: 40, paddingRight: 40 }}>
-                <Card {...p} image={img(i + 1)} enterFrom={i % 2 ? "left" : "right"} width={560} height={880} />
+                <Card project={p} asset={mediaAt(i)} sceneIndex={i} videoOffsetFrames={s.from} enterFrom={i % 2 ? "left" : "right"} width={560} height={880} />
               </AbsoluteFill>
               <FeatureText index={i} total={p.features.length} title={f.title} description={f.description} accent={p.accent} headline={st.headline} arcade={arcade} />
             </Fade>

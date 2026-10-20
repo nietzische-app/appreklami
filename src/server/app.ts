@@ -91,7 +91,10 @@ export function createApp() {
         const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName);
         tempDir = analysis.tempDir;
         const { tempDir: _omit, ...publicAnalysis } = analysis;
-        res.json({ ...publicAnalysis, images: analysis.images.map((p) => (p.startsWith(resolved.root) ? path.relative(resolved.root, p) : path.basename(p))) });
+        res.json({
+          ...publicAnalysis,
+          media: analysis.media.map((m) => ({ ...m, src: path.basename(m.src), poster: m.poster ? path.basename(m.poster) : undefined })),
+        });
       } finally {
         await resolved.cleanup();
         if (tempDir) await fs.rm(tempDir, { recursive: true, force: true });

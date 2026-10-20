@@ -9,12 +9,13 @@ import { parseReadme } from "../src/analyzer/readme";
 const fixture = (name: string) => path.resolve("tests/fixtures", name);
 
 test("detects a game project, README features and screenshots", async () => {
-  const a = await analyzeProject(fixture("pixel-quest"));
+  const a = await analyzeProject(fixture("pixel-quest"), undefined, false, { liveCapture: false });
   assert.equal(a.projectType, "game");
   assert.equal(a.name, "Pixel Quest");
   assert.match(a.tagline, /arcade platformer/i);
   assert.equal(a.readmeFeatures.length, 4);
-  assert.ok(a.images.some((p) => p.endsWith("screenshot-gameplay.png")));
+  assert.ok(a.media.some((m) => m.kind === "image" && m.src.endsWith("screenshot-gameplay.png") && m.width === 540));
+  assert.equal(a.mediaOrigin, "repo-assets");
   assert.equal(a.storyboards.length, 3);
   for (const s of a.storyboards) {
     assert.ok(s.hook && s.outro && s.cta);
@@ -24,9 +25,10 @@ test("detects a game project, README features and screenshots", async () => {
 });
 
 test("detects a SaaS web project and falls back gracefully without images", async () => {
-  const a = await analyzeProject(fixture("taskflow-saas"));
+  const a = await analyzeProject(fixture("taskflow-saas"), undefined, false, { liveCapture: false });
   assert.equal(a.projectType, "saas-web");
-  assert.deepEqual(a.images, []);
+  assert.deepEqual(a.media, []);
+  assert.equal(a.mediaOrigin, "generated-ui");
   assert.equal(a.storyboards.length, 3);
 });
 

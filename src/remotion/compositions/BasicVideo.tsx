@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Sequence } from "remotion";
-import type { VideoProps } from "../../shared/types";
+import type { MediaAsset, VideoProps } from "../../shared/types";
 import { Background } from "../components/Background";
 import { Fade } from "../components/Fade";
-import { ImageCard } from "../components/ImageCard";
+import { PhoneMockup } from "../components/PhoneMockup";
 import { Sfx } from "../components/Sfx";
 import { Watermark } from "../components/Watermark";
 import { FONT_SANS, fitFont } from "../theme";
@@ -17,7 +17,11 @@ const Title: React.FC<{ children: string; size?: number }> = ({ children, size =
 
 /** Option 1: clean vertical layout, blurred backdrop, fade transitions, soft sounds. */
 export const BasicVideo: React.FC<VideoProps> = (p) => {
-  const img = (i: number) => p.images[i % Math.max(p.images.length, 1)];
+  const mediaAt = (i: number): MediaAsset | undefined => (p.media.length ? p.media[i % p.media.length] : undefined);
+  const img = (i: number) => {
+    const m = mediaAt(i);
+    return m ? (m.kind === "video" ? m.poster : m.src) : undefined;
+  };
 
   return (
     <AbsoluteFill style={{ fontFamily: FONT_SANS, background: "#0b0d1a" }}>
@@ -25,7 +29,7 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
         <Background image={img(0)} accent={p.accent} accent2={p.accent2} />
         <Fade>
           <AbsoluteFill style={{ alignItems: "center", paddingTop: 150 }}>
-            <ImageCard image={img(0)} name={p.projectName} accent={p.accent} accent2={p.accent2} width={620} height={980} />
+            <PhoneMockup media={mediaAt(0)} project={p} sceneIndex={-1} videoOffsetFrames={HOOK.from} width={620} height={980} />
           </AbsoluteFill>
           <AbsoluteFill style={{ justifyContent: "flex-end", padding: "0 80px 300px" }}>
             <Title>{p.hook}</Title>
@@ -37,10 +41,10 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
         const s = featureScene(i);
         return (
           <Sequence key={f.title} from={s.from} durationInFrames={s.duration}>
-            <Background image={img(i + 1)} accent={p.accent} accent2={p.accent2} />
+            <Background image={img(i)} accent={p.accent} accent2={p.accent2} />
             <Fade>
               <AbsoluteFill style={{ alignItems: "center", paddingTop: 150 }}>
-                <ImageCard image={img(i + 1)} name={p.projectName} accent={p.accent} accent2={p.accent2} width={620} height={980} />
+                <PhoneMockup media={mediaAt(i)} project={p} sceneIndex={i} videoOffsetFrames={s.from} width={620} height={980} />
               </AbsoluteFill>
               <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", padding: "0 80px 250px", gap: 24 }}>
                 <div style={{ color: p.accent, fontSize: 40, fontWeight: 700, letterSpacing: 4 }}>{`FEATURE ${i + 1} / ${p.features.length}`}</div>
@@ -56,7 +60,7 @@ export const BasicVideo: React.FC<VideoProps> = (p) => {
         <Background image={img(0)} accent={p.accent} accent2={p.accent2} blur={55} />
         <Fade inFrames={14} outFrames={1}>
           <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px", gap: 56 }}>
-            <ImageCard image={img(0)} name={p.projectName} accent={p.accent} accent2={p.accent2} width={420} height={640} radius={44} />
+            <PhoneMockup media={mediaAt(0)} project={p} sceneIndex={3} videoOffsetFrames={OUTRO.from} width={420} height={660} />
             <Title size={90}>{p.outro}</Title>
             <div style={{ background: p.accent, color: "#0b0d1a", fontSize: 50, fontWeight: 800, padding: "26px 60px", borderRadius: 999 }}>{p.cta}</div>
           </AbsoluteFill>

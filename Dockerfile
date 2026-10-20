@@ -14,7 +14,8 @@ USER node
 COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci
 COPY --chown=node:node . .
-RUN npx remotion browser ensure && mkdir -p public/renders storage/jobs
+# Chrome for Remotion (also reused for live-demo recording) + Playwright's tiny ffmpeg for webm capture.
+RUN npx remotion browser ensure && npx playwright-core install ffmpeg && mkdir -p public/renders storage/jobs
 
 ENV NODE_ENV=production PORT=3000 DEFAULT_PLAN=free \
     CORS_ORIGIN=https://admirable-sundae-231bb4.netlify.app,https://*--admirable-sundae-231bb4.netlify.app

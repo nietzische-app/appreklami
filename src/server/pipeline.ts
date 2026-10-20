@@ -4,32 +4,39 @@ import path from "node:path";
 import { analyzeProject, resolveSource } from "../analyzer";
 import { PALETTES } from "../remotion/theme";
 import { TIERS, outputFileName } from "../shared/tiers";
-import type { Plan, ProjectAnalysis, SourceInput, TierConfig, VideoProps } from "../shared/types";
+import type { MediaAsset, Plan, ProjectAnalysis, SourceInput, TierConfig, VideoProps } from "../shared/types";
 import { config } from "./config";
 import { jobStore } from "./jobStore";
 import { CancelledError, renderWithRemotionCli } from "./renderer";
 
-const SAFE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+const SAFE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".webm", ".mp4"]);
 
-/** Builds the per-job Remotion public dir: shared sfx + the project's own images. Returns relative image paths. */
-async function stageAssets(jobId: string, analysis: ProjectAnalysis): Promise<{ publicDir: string; images: string[] }> {
+/** Builds the per-job Remotion public dir: shared sfx + the project's media. Returns media with public-dir-relative paths. */
+async function stageAssets(jobId: string, analysis: ProjectAnalysis): Promise<{ publicDir: string; media: MediaAsset[] }> {
   const publicDir = path.join(config.workDir, jobId, "public");
   await fs.rm(publicDir, { recursive: true, force: true });
-  await fs.mkdir(path.join(publicDir, "images"), { recursive: true });
+  await fs.mkdir(path.join(publicDir, "media"), { recursive: true });
   await fs.cp(path.join(config.assetsDir, "sfx"), path.join(publicDir, "sfx"), { recursive: true });
 
-  const images: string[] = [];
-  for (const [i, src] of analysis.images.entries()) {
+  const copy = async (src: string, name: string): Promise<string | undefined> => {
     const ext = path.extname(src).toLowerCase();
-    if (!SAFE_EXT.has(ext)) continue;
-    const rel = `images/img-${i + 1}${ext}`;
+    if (!SAFE_EXT.has(ext)) return undefined;
+    const rel = `media/${name}${ext}`;
     await fs.copyFile(src, path.join(publicDir, rel));
-    images.push(rel);
+    return rel;
+  };
+
+  const media: MediaAsset[] = [];
+  for (const [i, m] of analysis.media.entries()) {
+    const src = await copy(m.src, `m${i + 1}`);
+    if (!src) continue;
+    const poster = m.poster ? await copy(m.poster, `m${i + 1}-poster`) : undefined;
+    media.push({ ...m, src, poster });
   }
-  return { publicDir, images };
+  return { publicDir, media };
 }
 
-export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, images: string[], index: number): VideoProps {
+export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, media: MediaAsset[], index: number): VideoProps {
   const story = analysis.storyboards[index % analysis.storyboards.length];
   return {
     projectName: analysis.name,
@@ -39,7 +46,7 @@ export function buildVideoProps(analysis: ProjectAnalysis, tier: TierConfig, ima
     features: story.features,
     outro: story.outro,
     cta: story.cta,
-    images,
+    media,
     watermark: tier.watermark,
     ...PALETTES[analysis.projectType],
   };
@@ -79,7 +86,7 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
     const resolved = await resolveSource(source, signal);
     cleanup = resolved.cleanup;
     const analysis = await analyzeProject(resolved.root, resolved.displayName, resolved.preferDisplayName);
-    const { publicDir, images } = await stageAssets(jobId, analysis);
+    const { publicDir, media } = await stageAssets(jobId, analysis);
     await resolved.cleanup();
     if (analysis.tempDir) await fs.rm(analysis.tempDir, { recursive: true, force: true });
     cleanup = async () => {};
@@ -92,7 +99,9 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
         projectType: analysis.projectType,
         confidence: analysis.confidence,
         storyboards: analysis.storyboards,
-        imageCount: images.length,
+        imageCount: media.length,
+        mediaOrigin: analysis.mediaOrigin,
+        liveUrl: analysis.liveUrl,
       };
       j.status = "rendering";
     });
@@ -105,7 +114,7 @@ export async function runJob(jobId: string, source: SourceInput, plan: Plan): Pr
         j.videos[index].progress = 0;
       });
       const propsFile = path.join(config.workDir, jobId, `props-${tier.id}.json`);
-      await fs.writeFile(propsFile, JSON.stringify(buildVideoProps(analysis, tier, images, index)));
+      await fs.writeFile(propsFile, JSON.stringify(buildVideoProps(analysis, tier, media, index)));
       const fileName = outputFileName(tier);
 
       try {
