@@ -2,7 +2,8 @@ import express, { type NextFunction, type Request, type Response } from "express
 import path from "node:path";
 import { z } from "zod";
 import { analyzeProject, resolveSource, SourceError } from "../analyzer";
-import { validateSource } from "../analyzer/source";
+import { allowedLocalRoots, validateSource } from "../analyzer/source";
+import { DURATION_SECONDS, TIERS, resolutionOf } from "../shared/tiers";
 import type { Plan } from "../shared/types";
 import { config } from "./config";
 import { JOB_ID_RE, isTerminal, jobStore } from "./jobStore";
@@ -22,13 +23,52 @@ function resolvePlan(req: Request): Plan {
   return config.defaultPlan;
 }
 
+class RateLimitError extends Error {}
+const hits = new Map<string, number[]>();
+
+function enforceLimits(ip: string): void {
+  if (jobQueue.size >= config.maxQueuedJobs) throw new RateLimitError("The render queue is full, please try again in a few minutes.");
+  if (!config.rateLimitPerHour) return;
+  const now = Date.now();
+  const recent = (hits.get(ip) ?? []).filter((t) => now - t < 3_600_000);
+  if (recent.length >= config.rateLimitPerHour) {
+    throw new RateLimitError(`Limit reached: ${config.rateLimitPerHour} video sets per hour. Please try again later.`);
+  }
+  recent.push(now);
+  hits.set(ip, recent);
+}
+
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
+
+  app.use((req, res, next) => {
+    const origin = req.header("origin");
+    const allowed = config.corsOrigins.includes("*") || (origin && config.corsOrigins.includes(origin));
+    if (origin && allowed) {
+      res.setHeader("Access-Control-Allow-Origin", config.corsOrigins.includes("*") ? "*" : origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Plan");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    }
+    if (req.method === "OPTIONS") return void res.sendStatus(204);
+    next();
+  });
   app.use(express.json({ limit: "32kb" }));
 
   app.use("/renders", express.static(config.rendersDir, { index: false, fallthrough: true }));
   app.use(express.static(path.resolve("public"), { index: "index.html" }));
+
+  /** Lets the web UI adapt (e.g. hide the local-folder tab on a public server). */
+  app.get("/api/config", (_req, res) => {
+    res.json({
+      localSources: allowedLocalRoots().length > 0,
+      plan: config.defaultPlan,
+      tiers: TIERS.map((t) => ({ option: t.option, id: t.id, label: t.label, resolution: resolutionOf(t), watermark: t.watermark, premium: t.premium })),
+      durationSeconds: DURATION_SECONDS,
+    });
+  });
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, queued: jobQueue.size });
@@ -55,6 +95,7 @@ export function createApp() {
       const { source } = generateSchema.parse(req.body);
       await validateSource(source);
 
+      enforceLimits(req.ip ?? "unknown");
       const plan = resolvePlan(req);
       const jobId = newJobId();
       const job = jobStore.create(jobId, source, plan);
@@ -66,7 +107,7 @@ export function createApp() {
         plan,
         statusUrl: `/api/jobs/${jobId}`,
         eventsUrl: `/api/jobs/${jobId}/events`,
-        outputDir: `/renders/${jobId}/`,
+        outputDir: `${config.publicBaseUrl}/renders/${jobId}/`,
         videos: job.videos,
       });
     } catch (err) {
@@ -120,6 +161,7 @@ export function createApp() {
     if (err instanceof z.ZodError) {
       return void res.status(400).json({ error: "Invalid request body", details: err.issues });
     }
+    if (err instanceof RateLimitError) return void res.status(429).json({ error: err.message });
     if (err instanceof SourceError) return void res.status(400).json({ error: err.message });
     if ((err as { type?: string }).type === "entity.parse.failed") {
       return void res.status(400).json({ error: "Malformed JSON body" });

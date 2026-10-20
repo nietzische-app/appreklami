@@ -19,11 +19,14 @@ export function parseGithubUrl(url: string): { owner: string; repo: string; clon
 
 export function allowedLocalRoots(): string[] {
   const configured = process.env.ALLOWED_LOCAL_ROOTS;
-  const roots = configured ? configured.split(",").map((s) => s.trim()).filter(Boolean) : [path.resolve("projects")];
-  return roots.map((r) => path.resolve(r));
+  if (!configured) return [];
+  return configured.split(",").map((s) => path.resolve(s.trim())).filter(Boolean);
 }
 
 async function resolveLocal(input: string): Promise<string> {
+  if (allowedLocalRoots().length === 0) {
+    throw new SourceError("Local folder sources are disabled on this server (set ALLOWED_LOCAL_ROOTS).");
+  }
   let real: string;
   try {
     real = await fs.realpath(path.resolve(input));

@@ -23,5 +23,12 @@ export const config = {
    * ALLOW_PLAN_OVERRIDE=1 a client may send `X-Plan: free|pro` (dev/testing only).
    */
   defaultPlan: (process.env.DEFAULT_PLAN === "free" ? "free" : "pro") as Plan,
+  /** Comma-separated origins allowed to call the API from a browser (e.g. the Netlify site). "*" allows all. */
+  corsOrigins: (process.env.CORS_ORIGIN ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+  /** Max new jobs per client IP per hour (0 = unlimited). */
+  rateLimitPerHour: Number(process.env.RATE_LIMIT_PER_HOUR ?? 5),
+  maxQueuedJobs: int(process.env.MAX_QUEUED_JOBS, 20),
+  /** Prefix for URLs returned to clients; set when the API is served from a different origin. */
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL ?? "").replace(/\/$/, ""),
   allowPlanOverride: process.env.ALLOW_PLAN_OVERRIDE === "1",
 };

@@ -25,7 +25,7 @@ curl -X POST localhost:3000/api/generate-videos \
 # -> 202 {"jobId":"...","statusUrl":"/api/jobs/...","eventsUrl":"/api/jobs/.../events","outputDir":"/renders/.../"}
 ```
 
-Local folders must be inside `ALLOWED_LOCAL_ROOTS` (default `./projects`):
+Local folders are disabled unless `ALLOWED_LOCAL_ROOTS` is set, and must be inside it:
 
 ```bash
 ALLOWED_LOCAL_ROOTS=./tests/fixtures npm start
@@ -76,6 +76,25 @@ Overall progress: 0-5% analysis, then the remaining 95% is split evenly over the
   Each job gets a private Remotion `--public-dir` (shared sfx + that project's images), deleted after the job.
 - `scripts/generate-sfx.ts` - synthesises every sound effect as WAV (`npm run sfx`), so there are no audio licences.
 
+## Web UI and public deployment
+
+`web/` is a Vite + React app (TR/EN, live progress ring per video, storyboard preview, shareable `?job=<id>` links).
+
+```bash
+npm start                 # API on :3000
+cd web && npm install && npm run dev   # UI on :5173, proxies /api and /renders to :3000
+```
+
+**Netlify cannot run the renderer** (functions are limited to seconds; Remotion needs Chrome, ffmpeg and minutes of CPU).
+So the deployment is split:
+
+1. **API** on a long-lived host (Fly.io / Railway / Render / VPS) using the `Dockerfile` (default `DEFAULT_PLAN=free`).
+   Set `CORS_ORIGIN=https://<your-site>.netlify.app`. Give it a persistent volume for `public/renders` (or add S3 later).
+2. **UI** on Netlify: connect the repo (`netlify.toml` already sets base `web`, build `npm run build`, publish `dist`) and set the
+   env var `VITE_API_URL=https://<your-api-host>`.
+
+Before going public you also want auth/billing in `resolvePlan`; until then keep `DEFAULT_PLAN=free` and the rate limit on.
+
 `npm run studio` opens Remotion Studio to iterate on the compositions.
 
 ## Configuration
@@ -83,7 +102,10 @@ Overall progress: 0-5% analysis, then the remaining 95% is split evenly over the
 | Env | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `ALLOWED_LOCAL_ROOTS` | `./projects` | Comma-separated roots a `local` source must live in |
+| `ALLOWED_LOCAL_ROOTS` | unset (disabled) | Comma-separated roots a `local` source must live in. Leave unset on a public server |
+| `CORS_ORIGIN` | none | Origins allowed to call the API from a browser, e.g. `https://my-site.netlify.app` |
+| `RATE_LIMIT_PER_HOUR` | `5` | New jobs per client IP per hour (`0` = off) |
+| `MAX_QUEUED_JOBS` | `20` | Reject new jobs (HTTP 429) when the queue is this long |
 | `DEFAULT_PLAN` | `pro` | Plan given to every request until real auth exists (`free` skips the PRO video) |
 | `ALLOW_PLAN_OVERRIDE` | off | `1` lets a client send `X-Plan: free\|pro` (dev/testing only) |
 | `PRO_RENDER_SCALE` | `2` | Remotion `--scale` for the PRO video (1 = 1080p, 2 = 4K) |

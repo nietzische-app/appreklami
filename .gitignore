@@ -4,3 +4,5 @@ public/renders/*
 !public/renders/.gitkeep
 *.log
 .env
+web/node_modules/
+web/dist/
