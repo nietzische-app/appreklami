@@ -125,12 +125,10 @@ export function buildStoryboards(
       title: fill(f.title, name),
       description: fill(f.description, name),
     }));
-    // Blend in up to two real README features, rotating per video so the three cuts differ.
-    const blended = [...template];
-    for (let k = 0; k < 2 && realFeatures.length > 0; k++) {
-      const real = realFeatures[(i * 2 + k) % realFeatures.length];
-      blended[k + 1] = real;
-    }
+    // Real README material first (rotated per video so the cuts differ); templates only fill the gaps.
+    const real: Feature[] = [];
+    for (let k = 0; k < Math.min(3, realFeatures.length); k++) real.push(realFeatures[(i + k) % realFeatures.length]);
+    const blended = [...real, ...template.slice(real.length)];
     return {
       id: `story-${i + 1}`,
       angle: copy.angles[i],

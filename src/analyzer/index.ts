@@ -28,6 +28,9 @@ export async function analyzeProject(root: string, fallbackName = path.basename(
   const classification = await classifyProject(root, files, readmeText);
 
   const name = prettifyName(readme.title ?? classification.manifestName ?? fallbackName) || "Your Project";
+  const featureTexts = readme.features.length
+    ? readme.features
+    : readme.sections.map((s) => `${s.title} - ${s.summary}`);
   const tagline = (readme.tagline ?? classification.manifestDescription ?? `${name} - built to impress.`).slice(0, 160);
 
   const readmeDir = readmeFile ? path.posix.dirname(readmeFile.rel) : ".";
@@ -41,8 +44,8 @@ export async function analyzeProject(root: string, fallbackName = path.basename(
     confidence: classification.confidence,
     readmeExcerpt: readme.excerpt,
     images,
-    readmeFeatures: readme.features,
-    storyboards: buildStoryboards(classification.type, name, tagline, readme.features),
+    readmeFeatures: featureTexts,
+    storyboards: buildStoryboards(classification.type, name, tagline, featureTexts),
   };
 }
 
