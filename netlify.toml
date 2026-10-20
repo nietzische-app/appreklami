@@ -1,0 +1,21 @@
+# Frontend only: the Remotion render API must run on a long-lived server (see Dockerfile / README).
+# Set VITE_API_URL in Netlify -> Site settings -> Environment variables to the API's public https URL.
+[build]
+  base    = "web"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
